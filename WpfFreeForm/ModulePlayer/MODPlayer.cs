@@ -153,7 +153,6 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 
 	}
 
-
 	public class MODSample
 	{
 		public string name 				= "";	// Name of the sample
@@ -381,4 +380,227 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 		}
 	}
 
+	public class MODPatternElement
+	{
+		public int period				= 0;
+		public int noteIndex			= 0;
+		public int instrument			= 0;
+		public int effekt				= 0;
+		public int effektOp				= 0;
+		public int volumeEffekt			= 0;
+		public int volumeEffektOp		= 0;
+
+		public override string ToString()
+		{
+			string res = MODConst.getNoteNameToIndex(noteIndex);
+			if ((period == 0 && noteIndex != 0) || (period != 0 && noteIndex == 0))
+				res += "!";
+			else
+				res += " ";
+			if (instrument != 0) res += MODUtils.getAsDec(instrument, 2); 
+			else res += "..";
+		
+			res += " ";
+			if ((effekt != 0) || (effektOp != 0))
+			{
+				res += MODUtils.getAsHex(effekt, 1);
+				res += MODUtils.getAsHex(effektOp, 2);
+			}
+			else res += "...";
+			return res;
+		}
+	}
+
+	public class MODPatternRow
+	{
+		public List<MODPatternElement> patternElements = new List<MODPatternElement>();
+		public override string ToString()
+		{
+			string res = "";
+			for (int i = 0; i < patternElements.Count; i++)
+				res += patternElements[i].ToString() + '|';
+			return res;
+		}
+	}
+
+	public class MODPattern
+	{
+		public List<MODPatternRow> patternRows = new List<MODPatternRow>();
+
+		public override string ToString()
+		{
+			string res = "";
+			string ln = "";
+			if (patternRows[0] != null)
+			{
+				ln = "====";
+				for (int j = 0; j < patternRows[0].patternElements.Count; j++) 
+					ln += "===========";
+				ln +="\n";
+
+				res += ln;
+				for (int i = 0; i < patternRows.Count; i++)
+					res += MODUtils.getAsHex(i, 2) + ":|" + patternRows[i] + "\n";			
+				res += ln;
+			}
+			else res += "empty pattern\n";
+			return res;
+		}
+
+		//private function createNewPatternElement(note:uint, nSamples):cPatternElement
+		//{
+		//	var pe:cPatternElement = new cPatternElement();
+
+		//	pe.instrument = ((((note & 0xF0000000) >>> 24) | ((note & 0xF000) >>> 12)) & nSamples);
+		//	pe.period = ((note & 0x0FFF0000) >>> 16);
+
+		//	if (pe.period > 0) pe.noteIndex = (cMODConst.getNoteIndexForPeriod(pe.period) + 1);
+
+		//	pe.effekt = ((note & 0x0F00) >>> 8);
+		//	pe.effektOp = (note & 0xFF);
+
+		//	return pe;
+		//}
+
+	//public function readPatternData(fileData:ByteArray, modID: String, nChannels, nSamples: int):void
+	//{
+	//	var pRow:cPatternRow;
+	//	if (modID == 'FLT8') // StarTrekker is slightly different
+	//	{
+	//		for (var row:int = 0; row < 64; row++)
+	//		{
+	//			pRow = new cPatternRow();
+	//			for (var channel:int = 0; channel < 4; channel++)
+	//			{
+	//				pRow.patternElement.push(createNewPatternElement(fileData.readUnsignedInt(), nSamples));
+	//			}
+	//			for (channel = 4; channel < 8; channel++) pRow.patternElement.push(new cPatternElement());
+	//			patternRow.push(pRow);
+	//		}
+	//		for (row = 0; row < 64; row++)
+	//		{
+	//			for (channel = 4; channel < 8; channel++)
+	//			{
+	//				patternRow[row].patternElement[channel] =
+	//				createNewPatternElement(fileData.readUnsignedInt(), nSamples);
+	//			}
+	//		}
+	//	}
+	//	else
+	//	{
+	//		for (row = 0; row < 64; row++)
+	//		{
+	//			pRow = new cPatternRow();
+	//			for (channel = 0; channel < nChannels; channel++)
+	//			{
+	//				pRow.patternElement.push(createNewPatternElement(fileData.readUnsignedInt(), nSamples));
+	//			}
+	//			patternRow.push(pRow);
+	//		}
+	//	}
+
+	//}
+	}
+
+	public class MODPatternList
+	{
+		public List<MODPattern> patterns = new List<MODPattern>();
+		public override string ToString()
+		{
+			string res = "";
+			
+			for (int i = 0; i < patterns.Count; i++)
+				res += i + ". Pattern:\n" + patterns[i].ToString();
+			
+			return res;
+		}
+	}
+
+	public class MODMixerInfo
+	{
+		public bool played 					= false;
+		public int counter 					= 0;
+		public int speed 					= 6;
+		public int patternDelay				= 0;
+		public int BPM 						= 125;
+		public int samplesPerTick 			= 0;
+		public int mixerPosition 			= 0;
+		public int mixerTime				= 0;
+		public int currentRow 				= 0;
+		public int track 					= 0;
+		//public var pattern:cPattern				= null;
+	}
+
+	public class MODMixerChannel
+	{
+		public bool muted 				= false;
+		
+		public int effect 					= 0;
+		public int effectArg 				= 0;
+		public int effectArgX 				= 0;
+		public int effectArgY 				= 0;
+		
+		public int lastEffect 				= 0;
+		public int lastEffectArg 			= 0;
+		public int lastEffectArgX 			= 0;
+		public int lastEffectArgY 			= 0;
+
+		public int portamentoStart			= 0;
+		public int portamentoEnd			= 0;
+		public int portamentoStep			= 0;
+		
+		//public var volumeSlideStart:Boolean		= false;
+		//public var volumeSlideX:Number			= 0;
+		//public var volumeSlideY:Number			= 0;
+		
+		//public var patternJumpCounter:int		= 0;
+		//public var patternToJump:cPattern		= null;
+		//public var patternNumToJump:int			= 0;
+		//public var positionToJump:int			= 0;
+				
+		public int arpeggioPeriod 			= 0;		
+		public int arpeggioCount			= 0;
+		public int arpeggioIndex			= 0;
+		public int arpeggioX 				= 0;
+		public int arpeggioY				= 0;
+		
+		public int vibratoType				= 0;
+		public int vibratoStart 			= 0;
+		public float vibratoAdd				= 0;
+		public int vibratoCount				= 0;
+		public int vibratoAmp 				= 0;
+		public int vibratoFreq				= 0;
+		
+		public int tremoloType				= 0;
+		public int tremoloStart 			= 0;
+		public int tremoloAdd	 			= 0;
+		public int tremoloCount				= 0;
+		public int tremoloAmp 				= 0;
+		public int tremoloFreq				= 0;
+	
+		//public var noteIndex:int 				= 0;
+		//public var noNote:Boolean 				= true;
+		//public var lastNoteIndex:int			= 0;
+
+		//public var instrument:cInstrument 		= null;
+		//public var lastInstrument:cInstrument	= null;
+		//public var sample:cSample				= null;
+		//public var currentFineTune:int			= 0;
+		//public var lastSample:cSample			= null;
+		//public var lastFineTune:int				= 0;
+		//public var period:int 					= 0;
+		//public var lastPeriod:int				= 0;
+		//public var freq:int 					= 0;
+		//public var lastFreq:int					= 0;
+		//public var periodInc:int				= 0;
+		//public var samplePosition:int			= 0;
+		//public var samplePositionReal:int		= 0;
+		//public var loopType:int 				= cMODConst.LOOP_OFF;
+		//public var sampleLoopStart:Boolean		= false;
+		//public var sampleRepeatStart:int 		= 0;
+		//public var sampleRepeatStop:int 		= 0;
+		//public var sampleLength:int 			= 0;
+		//public var sampleVolume:Number 			= 1.0;
+		//public var channelVolume:Number 		= 1.0;		
+	}
 }
