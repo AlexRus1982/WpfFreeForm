@@ -28,7 +28,7 @@ namespace ModuleSystem
             SoundModuleName = soundModuleName;
         }
 
-        public virtual bool checkFormat()
+        public virtual bool checkFormat(Stream stream)
         {
             return false;
         }
@@ -93,7 +93,11 @@ namespace ModuleSystem
         public bool OpenFromStream(Stream stream)
         {
             if (sModule != null) sModule.Dispose();
-            DebugMes("Read from stream");
+            for (int i = 0; i < libModules.Count; i++)
+                if (libModules[i].checkFormat(stream)) sModule = libModules[i];
+
+            if (sModule != null) sModule.readFromStream(stream);
+            DebugMes(sModule.ToString());
             return true;
         }
 

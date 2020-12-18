@@ -151,7 +151,7 @@ namespace ModuleSystem
 		}
 
 	}
-	public class MODSample
+	public class MODInstrument
 	{
 		public string name 				= "";	// Name of the sample
 		public int length				= 0;	// full length (already *2 --> Mod-Fomat)
@@ -165,13 +165,13 @@ namespace ModuleSystem
 	
 		public List<float> sampleData   = new List<float>();	// The sampledata, already converted to 16 bit (always)
 																// 8Bit: 0..127,128-255; 16Bit: -32768..0..+32767												
-		//private var snd:Sound 			= new Sound();
+		//private var snd:Sound 		= new Sound();
 		//private var channel:SoundChannel;
-		//private var playPos:Number		= 0;
-		//private var playInc:Number		= 1;
-		//private var loopStart:Boolean   = false;
+		private float playPos			= 0;
+		private float playInc			= 1;
+		private bool loopStart			= false;
 
-		public MODSample()
+		public MODInstrument()
 		{
 			//super();
 			//snd.addEventListener(SampleDataEvent.SAMPLE_DATA, mixSound);
@@ -252,121 +252,58 @@ namespace ModuleSystem
 			return this.name;
 		}
 
-		//public void readSampleHeader(fileData:ByteArray)
-		//{
-		//	name = fileData.readMultiByte(22, 'cp866'); // Samplename
-		//	length = fileData.readUnsignedShort() << 1; // Length
+        public void readSampleHeader(Stream stream)
+        {
+            //name = fileData.readMultiByte(22, 'cp866'); // Samplename
+            //length = fileData.readUnsignedShort() << 1; // Length
 
-		//	var fine:int = fileData.readUnsignedByte() & 0xF; // finetune Value>7 means negative 8..15= -8..-1
-		//	fine = (fine > 7) ? fine - 16 : fine;
+            //var fine:int = fileData.readUnsignedByte() & 0xF; // finetune Value>7 means negative 8..15= -8..-1
+            //fine = (fine > 7) ? fine - 16 : fine;
 
-		//	fineTune = fine;
-		//	baseFrequency = cMODConst.getNoteFreq(24, fine);
+            //fineTune = fine;
+            //baseFrequency = MODConst.getNoteFreq(24, fine);
 
-		//	var vol:int = fileData.readUnsignedByte() & 0x7F; // volume 64 is maximum
-		//	volume = (vol > 64) ? 1.0 : Number(vol / 0x40);
+            //var vol:int = fileData.readUnsignedByte() & 0x7F; // volume 64 is maximum
+            //volume = (vol > 64) ? 1.0 : Number(vol / 0x40);
 
-		//	// Repeat start and stop
-		//	repeatStart = fileData.readUnsignedShort() << 1;
-		//	repeatLength = fileData.readUnsignedShort() << 1;
-		//	repeatStop = repeatStart + repeatLength;
+            //// Repeat start and stop
+            //repeatStart = fileData.readUnsignedShort() << 1;
+            //repeatLength = fileData.readUnsignedShort() << 1;
+            //repeatStop = repeatStart + repeatLength;
 
-		//	if (length < 4) length = 0;
-		//	if (length > 0)
-		//	{
-		//		if (repeatStart > length) repeatStart = length;
-		//		if (repeatStop > length) repeatStop = length;
-		//		if (repeatStart >= repeatStop ||
-		//			repeatStop <= 8 ||
-		//			(repeatStop - repeatStart) <= 4)
-		//		{
-		//			repeatStart = repeatStop = 0;
-		//			loopType = 0;
-		//		}
-		//		if (repeatStart < repeatStop) loopType = cMODConst.LOOP_ON;
-		//	}
-		//	else loopType = 0;
-		//	repeatLength = repeatStop - repeatStart;
-		//}
-		public void readSampleData(BinaryReader reader)
+            if (length < 4) length = 0;
+            if (length > 0)
+            {
+                if (repeatStart > length) repeatStart = length;
+                if (repeatStop > length) repeatStop = length;
+                if (repeatStart >= repeatStop ||
+                    repeatStop <= 8 ||
+                    (repeatStop - repeatStart) <= 4)
+                {
+                    repeatStart = repeatStop = 0;
+                    loopType = 0;
+                }
+                if (repeatStart < repeatStop) loopType = MODConst.LOOP_ON;
+            }
+            else loopType = 0;
+            repeatLength = repeatStop - repeatStart;
+        }
+
+        public void readSampleData(Stream stream)
 		{
 			if (length > 0)
 			{
-				sampleData = new List<float>();
+				sampleData.Clear();
 				for (int s = 0; s < length; s++)
 				{
-					int data = reader.ReadByte();
+					int data = stream.ReadByte();
 					sampleData.Add((float)((data - 127) * 0.0078125));  // 0.0078125 = 1/128
 				}
 			}
 			fixSampleLoops();
 		}		
 	}
-	public class MODInstrument
-	{
-		//public array sampleIndex			= [];
-		//public var noteIndex:Array				= [];
-		public int volumeFadeOut			= 0;
-		public string name					= "Noname instrument";
-	
-		// Impulstracker Values:
-		public string dosFileName			= "";
-		public int dublicateNoteCheck		= 0;
-		public int dublicateNoteAction		= 0;
-		/**
-	 	* NNA: New note action:
-		*      0 = Note cut
-		*      1 = Note continue
-		*      2 = Note off
-		*      3 = Note fade
-		*/
-		public int NNA						= 0;
-		public int pitchPanSeparation		= 0;
-		public int pitchPanCenter			= 0;
-		public int globalVolume				= 0;
-		public int defaultPan				= 0;
-		public int randomVolumeVariation 	= 0;
-		public int randomPanningVariation	= 0;
-		public int initialFilterCutoff		= 0;
-		public int initialFilterResonance	= 0;
-		public override string ToString()
-		{
-			return name;
-		}
 
-		//public function readInstrument(fileData:ByteArray):void
-		//{
-		//}
-	}
-	public class MODInstrumentsList
-	{
-		//public var sample:Array = [];
-
-		public int getAllSamplesLength()
-		{
-			int allSamplesLength = 0;
-			//for (int i = 0; i < sample.length; i++)
-			//	allSamplesLength += sample[i].length;
-			return allSamplesLength;
-		}
-
-		public override string ToString()
-		{
-			string result = "";
-
-			//if (sample.length > 0)
-			//{
-			//	result += 'Samples info : \n';
-			//	for (var i:int = 0; i < sample.length; i++)
-			//			{
-			//		result += (MODUtils.getAsHex(i, 2) + ':' + sample[i].toString());
-			//		result += '\n';
-			//	}
-			//}
-
-			return result;
-		}
-	}
 	public class MODPatternElement
 	{
 		public int period				= 0;
@@ -587,15 +524,208 @@ namespace ModuleSystem
 
 	public class MODSoundModule : SoundModule
     {
+		//public var mixer:cMODMixer						= null;
+
+		public string fileName 						= "";
+		public long fileLength						= 0;
+		public string trackerName					= "";
+		public string modID							= "";
+		public string songName						= "";
+		public int nChannels						= 0;
+		public int nInstruments						= 0;
+		public int nSamples							= 0;
+		public int nPatterns						= 0;
+		public int BPMSpeed							= 0;
+		public int tempo							= 0;
+		private List<MODInstrument> Instruments		= new List<MODInstrument>();
+		//public var patternsList:cPatternsList			= new cPatternsList();
+		public int songLength						= 0;
+		public List<int> arrangement 				= new List<int>();
+		public int baseVolume						= 0;
+		public bool isAmigaLike						= true;
+		
+		//public var onLoaded:Function 					= doNothing;
+		//public var onProgress:Function 				= doNothing;
+		
+		private int bytesLeft						= 0;
+
 		public MODSoundModule():base("MOD format")
 		{
 			DebugMes("MOD Sound Module created");
         }
 
+		public int getAllInstrumentsLength()
+		{
+			int allSamplesLength = 0;
+			foreach (MODInstrument inst in Instruments)
+				allSamplesLength += inst.length;
+
+			return allSamplesLength;
+		}
+
+		public string InstrumentsToString()
+		{
+			string result = "";
+
+			//if (sample.length > 0)
+			//{
+			//	result += 'Samples info : \n';
+			//	for (var i:int = 0; i < sample.length; i++)
+			//			{
+			//		result += (MODUtils.getAsHex(i, 2) + ':' + sample[i].toString());
+			//		result += '\n';
+			//	}
+			//}
+
+			return result;
+		}
+
+
+		private void readInstruments()
+		{
+			for (int i = 0; i < nSamples; i++)
+			{
+				MODInstrument inst = new MODInstrument();
+				Instruments.Add(inst);
+			}
+		}
+
+
 		public override bool readFromStream(Stream stream)
 		{
+			checkFormat(stream);
+			setModType();
+
+			baseVolume = 128;
+			BPMSpeed = 125;
+			tempo = 6;
+
+			stream.Seek(0, SeekOrigin.Begin);
+
+			songName = "";
+			for (int i = 0; i < 20; i++)
+			{
+				int s = stream.ReadByte();
+				if (s != 0) songName += (char)s;
+			}
+
+			nInstruments = nSamples;
+
+			//readInstruments(); // read instruments		
+
+			//readArrangement(); // read arrangement	
+
+			//readPatterns(); // read patterns
+
+			//readSamplesData(); // read samples data
+
+			//mixer = new cMODMixer(this);
+			//mixer.mixInfo.BPM = BPMSpeed;
+			//mixer.mixInfo.speed = tempo;
+
+			fileLength = stream.Length;
+
 			return true;
 		}
+
+		private void setModType()
+		{
+			isAmigaLike = false;
+			nSamples = 31;
+
+			if (modID == "M.K." || modID == "M!K!" || modID == "M&K!" || modID == "N.T.")
+			{
+				isAmigaLike = true; 
+				nChannels = 4;
+				trackerName = "ProTracker";
+			}
+			
+			if (modID.Substring(0, 3) == "FLT")
+			{				
+				nChannels = int.Parse(modID.Substring(3, 1));
+				trackerName = "StarTrekker";
+			}
+
+			if (modID.Substring(0, 3) == "TDZ")
+			{
+				nChannels = int.Parse(modID.Substring(3, 1));
+				trackerName = "StarTrekker";
+			}
+
+			if (modID.Substring(1, 3) == "CHN")
+			{
+				nChannels = int.Parse(modID.Substring(0, 1));
+				trackerName = "StarTrekker";
+			}
+
+			if (modID == "CD81" || modID == "OKTA")
+			{
+				nChannels = 8;
+				trackerName = "Atari Oktalyzer";
+			}
+
+			if (modID.Substring(2, 2) == "CH" || modID.Substring(2, 2) == "CN")
+			{
+				nChannels = int.Parse(modID.Substring(0, 2));
+				trackerName = "TakeTracker";
+			}	 
+		}
+
+		public override bool checkFormat(Stream stream)
+		{
+			byte[] bytesID = new byte[4];
+			stream.Seek(1080, SeekOrigin.Begin);
+			stream.Read(bytesID);
+			modID = Encoding.ASCII.GetString(bytesID);
+
+            return modID == "M.K." ||
+                   modID == "M!K!" ||
+                   modID == "M&K!" ||
+                   modID == "N.T." ||
+                   modID == "CD81" ||
+                   modID == "OKTA" ||
+                   modID.Substring(0, 3) == "FLT" ||
+                   modID.Substring(0, 3) == "TDZ" ||
+                   modID.Substring(1, 3) == "CHN" ||
+                   modID.Substring(2, 2) == "CH"  ||
+				   modID.Substring(2, 2) == "CN";
+		}
+
+		public override string ToString()
+		{
+			string modInfo = "";
+
+			modInfo += "Mod Length " + this.fileLength + "\n";
+			modInfo += "Mod with " + nSamples + " samples and " + nChannels + " channels using\n";
+			modInfo += "Tracker : " + trackerName + " modID : " + modID + "\n";
+			modInfo += (isAmigaLike) ? "Protracker" : "Fast Tracker log";
+			modInfo += " frequency table\n";
+			modInfo += "Song named : " + songName + "\n";
+			modInfo += "SongLength : " + songLength + "\n";
+
+			for (int i = 0; i < songLength; i++)
+			{
+				modInfo += arrangement[i];
+				if (i < songLength - 1) 
+					modInfo += ",";
+			}
+			modInfo += "\n\n";
+
+
+			//modInfo += instrumentsList.toString() + '\n';
+
+			//for (i = 0; i < songLength; i++)
+			//{
+			//	var pNum:int = arrangement[i];
+			//	modInfo += 'Pattern : ' + cMODUtils.getAsHex(pNum, 2) + '\n';
+			//	modInfo += patternsList.pattern[pNum].toString() + '\n';
+			//}
+
+			//modInfo += pLst.toString();
+			/**/
+			return modInfo;
+		}
+
 
 	}
 }
