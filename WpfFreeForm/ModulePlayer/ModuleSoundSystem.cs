@@ -9,6 +9,9 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 {
     public partial class ModuleSoundSystem
     {
+        public delegate void SoundSystemHandler();
+        public event SoundSystemHandler onPlayed;
+
         private uint musicBufferLen_ms = 500;
         private uint samplesPerSecond = 44100;
         private uint musicBufferLen;
@@ -22,6 +25,7 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
             calcBufferLen();
             WriteWavHeader(writer0); GenerateWaveform(writer0, 0, true);
             WriteWavHeader(writer1); GenerateWaveform(writer1, 0, true);
+            onPlayed += Player_onPlayed;
         }
         public void setSampleRate(uint samplesPerSecond)
         {
@@ -100,16 +104,21 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 
             player.Stream = writer.BaseStream;
 
-            DebugMes("Current buffer - " + musicBuffer);
-            DebugMes("Playing start ...");
+            //DebugMes("Current buffer - " + musicBuffer);
+            //DebugMes("Playing start ...");
 
             player.PlaySync();
 
             GenerateWaveform(writer, frequency);
 
-            DebugMes("Playing stop.");
+            //DebugMes("Playing stop.");
+            onPlayed?.Invoke();
 
             musicBuffer = musicBuffer ^ 1; //SwapBuffers
+        }
+        private void Player_onPlayed()
+        {
+            DebugMes("Stop play event!"); ;
         }
 
     }
