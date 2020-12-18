@@ -12,8 +12,9 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using Microsoft.Win32;
 
-using WpfFreeFormModulePlayer.ModulePlayer;
+using ModuleSystem;
 
 namespace WpfFreeFormModulePlayer
 {
@@ -22,27 +23,50 @@ namespace WpfFreeFormModulePlayer
     /// </summary>
     public partial class MainWindow : Window
     {
-        private ModuleSoundSystem player = new ModuleSoundSystem();
+        private ModulePlayer mPlayer = new ModulePlayer();
 
         public MainWindow()
         {
             InitializeComponent();
         }
 
-        private void Button_Click(object sender, RoutedEventArgs e)
+        private void Close_Click(object sender, RoutedEventArgs e)
         {
             Close();
         }
 
-        private void SoundButton_Click(object sender, RoutedEventArgs e)
+        private void OpenSound_Click(object sender, RoutedEventArgs e)
         {
-            player.Play(1500);
+            var filePath = string.Empty;
+
+            OpenFileDialog openFileDialog = new OpenFileDialog();
+            openFileDialog.Title = "Browse MOD Files";
+            openFileDialog.InitialDirectory = "D:\\Progs\\music";
+            openFileDialog.Filter = "MOD Sound Files (*.mod)|*.mod|XM Sound Files (*.XM)|*.xm";
+            openFileDialog.FilterIndex = 1;
+            openFileDialog.RestoreDirectory = true;
+
+            if (openFileDialog.ShowDialog() == true)
+            {
+                //Get the path of specified file
+                filePath = openFileDialog.FileName;
+                mPlayer.OpenFromFile(filePath);
+            }
+        }
+
+        private void StartSound_Click(object sender, RoutedEventArgs e)
+        {
+            mPlayer.Play();
+        }
+
+        private void StopSound_Click(object sender, RoutedEventArgs e)
+        {
         }
 
         private void DebugMes(string mes)
         {
             #if DEBUG
-            System.Diagnostics.Debug.WriteLine(mes);
+            System.Diagnostics.Debug.WriteLine("MainForm -> " + mes);
             #endif
         }
     }

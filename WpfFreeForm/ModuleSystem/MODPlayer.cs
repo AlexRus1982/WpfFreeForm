@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.IO;
 
-namespace WpfFreeFormModulePlayer.ModulePlayer
+namespace ModuleSystem
 {
     public static class MODConst
     {
