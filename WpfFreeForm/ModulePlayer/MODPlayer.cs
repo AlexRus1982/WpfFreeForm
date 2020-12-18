@@ -120,7 +120,6 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 		}
 		
 	}
-
 	public static class MODUtils
 	{
 		public static string VERSION 				= "V1.0";
@@ -152,7 +151,6 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 		}
 
 	}
-
 	public class MODSample
 	{
 		public string name 				= "";	// Name of the sample
@@ -166,14 +164,12 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 		public int baseFrequency		= 0;	// BaseFrequency
 	
 		public List<float> sampleData   = new List<float>();	// The sampledata, already converted to 16 bit (always)
-																// 8Bit: 0..127,128-255; 16Bit: -32768..0..+32767
-												
+																// 8Bit: 0..127,128-255; 16Bit: -32768..0..+32767												
 		//private var snd:Sound 			= new Sound();
 		//private var channel:SoundChannel;
 		//private var playPos:Number		= 0;
 		//private var playInc:Number		= 1;
 		//private var loopStart:Boolean   = false;
-
 
 		public MODSample()
 		{
@@ -210,7 +206,6 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 		//		playPos += playInc;
 		//	}
 		//}
-
 		public void fixSampleLoops()
 		{
 			if (sampleData == null || length == 0)
@@ -232,7 +227,6 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 				loopType = 0;
 			}
 		}
-
 		public override string ToString()
 		{
 			///*
@@ -253,7 +247,6 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 			//*/
 			//return this.toShortString();
 		}
-
 		public string toShortString()
 		{
 			return this.name;
@@ -295,7 +288,6 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 		//	else loopType = 0;
 		//	repeatLength = repeatStop - repeatStart;
 		//}
-
 		public void readSampleData(BinaryReader reader)
 		{
 			if (length > 0)
@@ -309,9 +301,7 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 			}
 			fixSampleLoops();
 		}		
-		
 	}
-
 	public class MODInstrument
 	{
 		//public array sampleIndex			= [];
@@ -339,7 +329,6 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 		public int randomPanningVariation	= 0;
 		public int initialFilterCutoff		= 0;
 		public int initialFilterResonance	= 0;
-
 		public override string ToString()
 		{
 			return name;
@@ -349,7 +338,6 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 		//{
 		//}
 	}
-
 	public class MODInstrumentsList
 	{
 		//public var sample:Array = [];
@@ -379,7 +367,6 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 			return result;
 		}
 	}
-
 	public class MODPatternElement
 	{
 		public int period				= 0;
@@ -410,7 +397,6 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 			return res;
 		}
 	}
-
 	public class MODPatternRow
 	{
 		public List<MODPatternElement> patternElements = new List<MODPatternElement>();
@@ -422,11 +408,9 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 			return res;
 		}
 	}
-
 	public class MODPattern
 	{
 		public List<MODPatternRow> patternRows = new List<MODPatternRow>();
-
 		public override string ToString()
 		{
 			string res = "";
@@ -434,14 +418,14 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 			if (patternRows[0] != null)
 			{
 				ln = "====";
-				for (int j = 0; j < patternRows[0].patternElements.Count; j++) 
-					ln += "===========";
-				ln +="\n";
+				for (int i = 0; i < patternRows[0].patternElements.Count; i++) ln += "===========";
 
-				res += ln;
+				res += ln + "\n";
+
 				for (int i = 0; i < patternRows.Count; i++)
 					res += MODUtils.getAsHex(i, 2) + ":|" + patternRows[i] + "\n";			
-				res += ln;
+
+				res += ln + "\n";
 			}
 			else res += "empty pattern\n";
 			return res;
@@ -462,46 +446,45 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 		//	return pe;
 		//}
 
-	//public function readPatternData(fileData:ByteArray, modID: String, nChannels, nSamples: int):void
-	//{
-	//	var pRow:cPatternRow;
-	//	if (modID == 'FLT8') // StarTrekker is slightly different
-	//	{
-	//		for (var row:int = 0; row < 64; row++)
-	//		{
-	//			pRow = new cPatternRow();
-	//			for (var channel:int = 0; channel < 4; channel++)
-	//			{
-	//				pRow.patternElement.push(createNewPatternElement(fileData.readUnsignedInt(), nSamples));
-	//			}
-	//			for (channel = 4; channel < 8; channel++) pRow.patternElement.push(new cPatternElement());
-	//			patternRow.push(pRow);
-	//		}
-	//		for (row = 0; row < 64; row++)
-	//		{
-	//			for (channel = 4; channel < 8; channel++)
-	//			{
-	//				patternRow[row].patternElement[channel] =
-	//				createNewPatternElement(fileData.readUnsignedInt(), nSamples);
-	//			}
-	//		}
-	//	}
-	//	else
-	//	{
-	//		for (row = 0; row < 64; row++)
-	//		{
-	//			pRow = new cPatternRow();
-	//			for (channel = 0; channel < nChannels; channel++)
-	//			{
-	//				pRow.patternElement.push(createNewPatternElement(fileData.readUnsignedInt(), nSamples));
-	//			}
-	//			patternRow.push(pRow);
-	//		}
-	//	}
+		//public function readPatternData(fileData:ByteArray, modID: String, nChannels, nSamples: int):void
+		//{
+		//	var pRow:cPatternRow;
+		//	if (modID == 'FLT8') // StarTrekker is slightly different
+		//	{
+		//		for (var row:int = 0; row < 64; row++)
+		//		{
+		//			pRow = new cPatternRow();
+		//			for (var channel:int = 0; channel < 4; channel++)
+		//			{
+		//				pRow.patternElement.push(createNewPatternElement(fileData.readUnsignedInt(), nSamples));
+		//			}
+		//			for (channel = 4; channel < 8; channel++) pRow.patternElement.push(new cPatternElement());
+		//			patternRow.push(pRow);
+		//		}
+		//		for (row = 0; row < 64; row++)
+		//		{
+		//			for (channel = 4; channel < 8; channel++)
+		//			{
+		//				patternRow[row].patternElement[channel] =
+		//				createNewPatternElement(fileData.readUnsignedInt(), nSamples);
+		//			}
+		//		}
+		//	}
+		//	else
+		//	{
+		//		for (row = 0; row < 64; row++)
+		//		{
+		//			pRow = new cPatternRow();
+		//			for (channel = 0; channel < nChannels; channel++)
+		//			{
+		//				pRow.patternElement.push(createNewPatternElement(fileData.readUnsignedInt(), nSamples));
+		//			}
+		//			patternRow.push(pRow);
+		//		}
+		//	}
 
-	//}
+		//}
 	}
-
 	public class MODPatternList
 	{
 		public List<MODPattern> patterns = new List<MODPattern>();
@@ -515,7 +498,6 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 			return res;
 		}
 	}
-
 	public class MODMixerInfo
 	{
 		public bool played 					= false;
@@ -530,7 +512,6 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 		public int track 					= 0;
 		//public var pattern:cPattern				= null;
 	}
-
 	public class MODMixerChannel
 	{
 		public bool muted 				= false;
@@ -548,15 +529,15 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 		public int portamentoStart			= 0;
 		public int portamentoEnd			= 0;
 		public int portamentoStep			= 0;
-		
-		//public var volumeSlideStart:Boolean		= false;
-		//public var volumeSlideX:Number			= 0;
-		//public var volumeSlideY:Number			= 0;
-		
-		//public var patternJumpCounter:int		= 0;
+
+        public bool volumeSlideStart		= false;
+		public float volumeSlideX			= 0;
+		public float volumeSlideY			= 0;
+
+        public int patternJumpCounter		= 0;
 		//public var patternToJump:cPattern		= null;
-		//public var patternNumToJump:int			= 0;
-		//public var positionToJump:int			= 0;
+		public int patternNumToJump			= 0;
+		public int positionToJump			= 0;
 				
 		public int arpeggioPeriod 			= 0;		
 		public int arpeggioCount			= 0;
@@ -577,30 +558,30 @@ namespace WpfFreeFormModulePlayer.ModulePlayer
 		public int tremoloCount				= 0;
 		public int tremoloAmp 				= 0;
 		public int tremoloFreq				= 0;
-	
-		//public var noteIndex:int 				= 0;
-		//public var noNote:Boolean 				= true;
-		//public var lastNoteIndex:int			= 0;
 
-		//public var instrument:cInstrument 		= null;
+        public int noteIndex 				= 0;
+		public bool noNote 					= true;
+		public int lastNoteIndex			= 0;
+
+  //      public var instrument:cInstrument 		= null;
 		//public var lastInstrument:cInstrument	= null;
 		//public var sample:cSample				= null;
-		//public var currentFineTune:int			= 0;
+		public int currentFineTune			= 0;
 		//public var lastSample:cSample			= null;
-		//public var lastFineTune:int				= 0;
-		//public var period:int 					= 0;
-		//public var lastPeriod:int				= 0;
-		//public var freq:int 					= 0;
-		//public var lastFreq:int					= 0;
-		//public var periodInc:int				= 0;
-		//public var samplePosition:int			= 0;
-		//public var samplePositionReal:int		= 0;
-		//public var loopType:int 				= cMODConst.LOOP_OFF;
-		//public var sampleLoopStart:Boolean		= false;
-		//public var sampleRepeatStart:int 		= 0;
-		//public var sampleRepeatStop:int 		= 0;
-		//public var sampleLength:int 			= 0;
-		//public var sampleVolume:Number 			= 1.0;
-		//public var channelVolume:Number 		= 1.0;		
+		public int lastFineTune				= 0;
+		public int period 					= 0;
+		public int lastPeriod				= 0;
+		public int freq 					= 0;
+		public int lastFreq					= 0;
+		public int periodInc				= 0;
+		public int samplePosition			= 0;
+		public int samplePositionReal		= 0;
+        public int loopType					= MODConst.LOOP_OFF;
+        public bool sampleLoopStart			= false;
+		public int sampleRepeatStart 		= 0;
+		public int sampleRepeatStop 		= 0;
+		public int sampleLength 			= 0;
+		public float sampleVolume 			= 1.0f;
+		public float channelVolume 			= 1.0f;		
 	}
 }
