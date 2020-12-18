@@ -584,4 +584,18 @@ namespace ModuleSystem
 		public float sampleVolume 			= 1.0f;
 		public float channelVolume 			= 1.0f;		
 	}
+
+	public class MODSoundModule : SoundModule
+    {
+		public MODSoundModule():base("MOD format")
+		{
+			DebugMes("MOD Sound Module created");
+        }
+
+		public override bool readFromStream(Stream stream)
+		{
+			return true;
+		}
+
+	}
 }

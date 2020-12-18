@@ -7,8 +7,8 @@ namespace ModuleSystem
 {
     public class SoundModule : IDisposable
     {
-        private readonly string SoundModuleName = "Base module";
-        private float position = 0;
+        protected readonly string SoundModuleName = "Base module";
+        protected float position = 0;
 
         public float Position
         {
@@ -23,41 +23,42 @@ namespace ModuleSystem
             }
         }
 
-        public SoundModule()
+        public SoundModule(string soundModuleName)
         {
+            SoundModuleName = soundModuleName;
         }
 
-        public bool checkFormat()
+        public virtual bool checkFormat()
         {
             return false;
         }
 
-        public bool readFromStream(Stream stream)
+        public virtual bool readFromStream(Stream stream)
         {
             return true;
         }
 
-        private void rewindToPosition()
+        public virtual void rewindToPosition()
         {
         }
 
-        public void Play()
+        public virtual void Play()
         {
         }
 
-        public void Stop()
+        public virtual void Stop()
         {
         }
 
-        public void Pause()
+        public virtual void Pause()
         {
         }
 
-        public void Dispose()
+        public virtual void Dispose()
         {
         }
 
-        private void DebugMes(string mes)
+        protected void DebugMes(string mes)
         {
 #if DEBUG
             System.Diagnostics.Debug.WriteLine(SoundModuleName + " -> " + mes);
@@ -68,6 +69,7 @@ namespace ModuleSystem
 
     public class ModulePlayer
     {
+        private List<SoundModule> libModules = new List<SoundModule>();
         private SoundModule sModule = null;
 
         public float Position
@@ -85,7 +87,7 @@ namespace ModuleSystem
 
         public ModulePlayer()
         {
-
+            libModules.Add(new MODSoundModule());
         }
 
         public bool OpenFromStream(Stream stream)
