@@ -5,6 +5,70 @@ using System.IO;
 
 namespace ModuleSystem
 {
+    public static class ModuleUtils
+    {
+        public static string VERSION = "V1.0";
+        public static string PROGRAM = "Sound engine";
+        public static string FULLVERSION = PROGRAM + " " + VERSION;
+        public static string COPYRIGHT = "Copyright by Alex 2020";
+
+        public static string CODING_GUI = "cp850";
+        public static string CODING_COMMANLINE = "cp1252";
+        public static string currentCoding = CODING_GUI;
+
+        public const int SOUNDFREQUENCY = 44100;
+        public const int SOUNDBITS = 16;
+        public const int LOOP_ON = 0x01;
+        public const int LOOP_SUSTAIN_ON = 0x02;
+        public const int LOOP_IS_PINGPONG = 0x04;
+        public const int LOOP_SUSTAIN_IS_PINGPONG = 0x08;
+
+        public static string getAsHex(int value, int digits)
+        {
+            string hex = value.ToString("X" + digits.ToString());
+            return hex;
+        }
+
+        public static string getAsDec(int value, int digits)
+        {
+            string dec = value.ToString("D" + digits.ToString());
+            return dec;
+        }
+
+        public static string readString0(Stream stream, int len)
+        {
+            string res = "";
+            bool stopString = false;
+            for (int i = 0; i < len; i++)
+            {
+                int s = stream.ReadByte();
+                if (s == 0) stopString = true;
+                if (s != 0 && !stopString) res += (char)s;
+            }
+
+            return res;
+        }
+        public static int readWord(Stream stream)
+        {
+            byte[] data = new byte[2];
+            stream.Read(data, 0, 2);
+            Array.Reverse(data);
+            return BitConverter.ToInt16(data, 0);
+        }
+
+        public static int readSignedByte(Stream stream)
+        {
+            byte[] b = new byte[1];
+            stream.Read(b);
+            int data;
+            if ((b[0] & 0x80) == 0) data = b[0];
+            else data = b[0] - 256;
+
+            return data;
+        }
+
+    }
+
     public class SoundModule : IDisposable
     {
         protected readonly string SoundModuleName = "Base module";
@@ -43,6 +107,9 @@ namespace ModuleSystem
         }
 
         public virtual void Play()
+        {
+        }
+        public virtual void PlayInstrument(int num)
         {
         }
 
@@ -116,13 +183,13 @@ namespace ModuleSystem
             return res;
         }
 
-        public void PlayInstrument(int instrNum)
-        {
-        }
-
         public void Play()
         {
             if (sModule != null) sModule.Play();
+        }
+        public void PlayInstrument(int num)
+        {
+            if (sModule != null) sModule.PlayInstrument(num);
         }
 
         public void Stop()

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using System.Media;
 
 namespace ModuleSystem
 {
@@ -84,7 +85,7 @@ namespace ModuleSystem
 			if (index <  -1) return "---";
 			if (index ==  0) return "...";  // No Note
 			if (index == -1) return "***"; // Note cut value
-			return (noteStrings[(index - 1) % 12] + (int) (((index - 1) / 12) + 3));
+			return (noteStrings[(index - 1) % 12] + (int) (((index - 1) / 12) + 2));
 		}
 
 		public static int getNoteIndexForPeriod(int period)
@@ -120,37 +121,7 @@ namespace ModuleSystem
 		}
 		
 	}
-	public static class MODUtils
-	{
-		public static string VERSION 				= "V1.0";
-		public static string PROGRAM 				= "Sound engine";
-		public static string FULLVERSION 			= PROGRAM + " " + VERSION;
-		public static string COPYRIGHT 				= "Copyright by Alex 2006/07/08/09/10";
-	
-		public static string CODING_GUI 			= "cp850";
-		public static string CODING_COMMANLINE 		= "cp1252";
-		public static string currentCoding 			= CODING_GUI;
 
-		public const int SOUNDFREQUENCY 			= 44100;
-		public const int SOUNDBITS 					= 16;
-		public const int LOOP_ON					= 0x01;
-		public const int LOOP_SUSTAIN_ON			= 0x02;
-		public const int LOOP_IS_PINGPONG			= 0x04;
-		public const int LOOP_SUSTAIN_IS_PINGPONG	= 0x08;
-		
-		public static string getAsHex(int value, int digits)
-		{
-			string hex = value.ToString("X" + digits.ToString());
-			return hex;
-		}
-
-		public static string getAsDec(int value, int digits)
-		{
-			string dec = value.ToString("D" + digits.ToString());
-			return dec;
-		}
-
-	}
 	public class MODInstrument
 	{
 		public string name 				= "";	// Name of the sample
@@ -220,28 +191,27 @@ namespace ModuleSystem
 				repeatStop = length;
 				repeatLength = repeatStop - repeatStart;
 			}
-			if (repeatStart + 2 > repeatStop)
-			{
-				repeatStop = repeatStart = 0;
-				repeatLength = repeatStop - repeatStart;
-				loopType = 0;
-			}
-		}
+            if (repeatStart + 2 > repeatStop)
+            {
+                repeatStop = repeatStart = 0;
+                repeatLength = repeatStop - repeatStart;
+                loopType = 0;
+            }
+        }
 		public override string ToString()
 		{
 			///*
 			//if (length == 0) return this.name;
 			string res = this.name;
-			res += ('(')
-				   + "len:" + length + ","
-				   + "fTune:" + fineTune + ","
-				//+ "transpose:"  + transpose + ","
-				+ "baseFreq:" + baseFrequency + ","
-				   + "vol:" + volume + ","
-				//+ "panning:" + panning + ","
-				+ "repStart:" + repeatStart + ","
-				   + "repLen:" + repeatLength + ","
-				   + "repStop:" + repeatStop + ")";
+			res +=	"(len:" + length + ","
+					+ "fTune:" + fineTune + ","
+					//+ "transpose:"  + transpose + ","
+					+ "baseFreq:" + baseFrequency + ","
+					+ "vol:" + volume + ","
+					//+ "panning:" + panning + ","
+					+ "repStart:" + repeatStart + ","
+					+ "repLen:" + repeatLength + ","
+					+ "repStop:" + repeatStop + ")";
 
 			return res;
 			//*/
@@ -252,26 +222,25 @@ namespace ModuleSystem
 			return this.name;
 		}
 
-        public void readSampleHeader(Stream stream)
+        public void readInstrumentHeader(Stream stream)
         {
-            //name = fileData.readMultiByte(22, 'cp866'); // Samplename
-            //length = fileData.readUnsignedShort() << 1; // Length
+			name = ModuleUtils.readString0(stream, 22);
+			length = ModuleUtils.readWord(stream) * 2; // Length
 
-            //var fine:int = fileData.readUnsignedByte() & 0xF; // finetune Value>7 means negative 8..15= -8..-1
-            //fine = (fine > 7) ? fine - 16 : fine;
+			int fine = stream.ReadByte() & 0xF; // finetune Value>7 means negative 8..15= -8..-1
+			fineTune = (fine > 7) ? fine - 16 : fine;
 
-            //fineTune = fine;
-            //baseFrequency = MODConst.getNoteFreq(24, fine);
+			baseFrequency = MODConst.getNoteFreq(24, fine);
 
-            //var vol:int = fileData.readUnsignedByte() & 0x7F; // volume 64 is maximum
-            //volume = (vol > 64) ? 1.0 : Number(vol / 0x40);
+			int vol = stream.ReadByte() & 0x7F; // volume 64 is maximum
+			volume = (vol > 64) ? 1.0f : (float)(vol / 64);
 
-            //// Repeat start and stop
-            //repeatStart = fileData.readUnsignedShort() << 1;
-            //repeatLength = fileData.readUnsignedShort() << 1;
-            //repeatStop = repeatStart + repeatLength;
+			//// Repeat start and stop
+			repeatStart = ModuleUtils.readWord(stream) * 2;
+			repeatLength = ModuleUtils.readWord(stream) * 2;
+			repeatStop = repeatStart + repeatLength;
 
-            if (length < 4) length = 0;
+			if (length < 4) length = 0;
             if (length > 0)
             {
                 if (repeatStart > length) repeatStart = length;
@@ -289,22 +258,19 @@ namespace ModuleSystem
             repeatLength = repeatStop - repeatStart;
         }
 
-        public void readSampleData(Stream stream)
+        public void readInstrumentData(Stream stream)
 		{
 			if (length > 0)
 			{
 				sampleData.Clear();
 				for (int s = 0; s < length; s++)
-				{
-					int data = stream.ReadByte();
-					sampleData.Add((float)((data - 127) * 0.0078125));  // 0.0078125 = 1/128
-				}
+					sampleData.Add((float)(ModuleUtils.readSignedByte(stream)) * 0.0078125f);  // 0.0078125 = 1/128
 			}
 			fixSampleLoops();
 		}		
 	}
 
-	public class MODPatternElement
+	public class MODPatternChannel
 	{
 		public int period				= 0;
 		public int noteIndex			= 0;
@@ -321,14 +287,14 @@ namespace ModuleSystem
 				res += "!";
 			else
 				res += " ";
-			if (instrument != 0) res += MODUtils.getAsDec(instrument, 2); 
+			if (instrument != 0) res += ModuleUtils.getAsHex(instrument, 2); 
 			else res += "..";
 		
 			res += " ";
 			if ((effekt != 0) || (effektOp != 0))
 			{
-				res += MODUtils.getAsHex(effekt, 1);
-				res += MODUtils.getAsHex(effektOp, 2);
+				res += ModuleUtils.getAsHex(effekt, 1);
+				res += ModuleUtils.getAsHex(effektOp, 2);
 			}
 			else res += "...";
 			return res;
@@ -336,12 +302,12 @@ namespace ModuleSystem
 	}
 	public class MODPatternRow
 	{
-		public List<MODPatternElement> patternElements = new List<MODPatternElement>();
+		public List<MODPatternChannel> patternChannels = new List<MODPatternChannel>();
 		public override string ToString()
 		{
 			string res = "";
-			for (int i = 0; i < patternElements.Count; i++)
-				res += patternElements[i].ToString() + '|';
+			for (int i = 0; i < patternChannels.Count; i++)
+				res += patternChannels[i].ToString() + '|';
 			return res;
 		}
 	}
@@ -350,17 +316,16 @@ namespace ModuleSystem
 		public List<MODPatternRow> patternRows = new List<MODPatternRow>();
 		public override string ToString()
 		{
-			string res = "";
-			string ln = "";
+			string res = "\n";
 			if (patternRows[0] != null)
 			{
-				ln = "====";
-				for (int i = 0; i < patternRows[0].patternElements.Count; i++) ln += "===========";
+				string ln = "====";
+				for (int i = 0; i < patternRows[0].patternChannels.Count; i++) ln += "===========";
 
 				res += ln + "\n";
 
 				for (int i = 0; i < patternRows.Count; i++)
-					res += MODUtils.getAsHex(i, 2) + ":|" + patternRows[i] + "\n";			
+					res += ModuleUtils.getAsHex(i, 2) + ":|" + patternRows[i] + "\n";			
 
 				res += ln + "\n";
 			}
@@ -368,71 +333,56 @@ namespace ModuleSystem
 			return res;
 		}
 
-		//private function createNewPatternElement(note:uint, nSamples):cPatternElement
-		//{
-		//	var pe:cPatternElement = new cPatternElement();
-
-		//	pe.instrument = ((((note & 0xF0000000) >>> 24) | ((note & 0xF000) >>> 12)) & nSamples);
-		//	pe.period = ((note & 0x0FFF0000) >>> 16);
-
-		//	if (pe.period > 0) pe.noteIndex = (cMODConst.getNoteIndexForPeriod(pe.period) + 1);
-
-		//	pe.effekt = ((note & 0x0F00) >>> 8);
-		//	pe.effektOp = (note & 0xFF);
-
-		//	return pe;
-		//}
-
-		//public function readPatternData(fileData:ByteArray, modID: String, nChannels, nSamples: int):void
-		//{
-		//	var pRow:cPatternRow;
-		//	if (modID == 'FLT8') // StarTrekker is slightly different
-		//	{
-		//		for (var row:int = 0; row < 64; row++)
-		//		{
-		//			pRow = new cPatternRow();
-		//			for (var channel:int = 0; channel < 4; channel++)
-		//			{
-		//				pRow.patternElement.push(createNewPatternElement(fileData.readUnsignedInt(), nSamples));
-		//			}
-		//			for (channel = 4; channel < 8; channel++) pRow.patternElement.push(new cPatternElement());
-		//			patternRow.push(pRow);
-		//		}
-		//		for (row = 0; row < 64; row++)
-		//		{
-		//			for (channel = 4; channel < 8; channel++)
-		//			{
-		//				patternRow[row].patternElement[channel] =
-		//				createNewPatternElement(fileData.readUnsignedInt(), nSamples);
-		//			}
-		//		}
-		//	}
-		//	else
-		//	{
-		//		for (row = 0; row < 64; row++)
-		//		{
-		//			pRow = new cPatternRow();
-		//			for (channel = 0; channel < nChannels; channel++)
-		//			{
-		//				pRow.patternElement.push(createNewPatternElement(fileData.readUnsignedInt(), nSamples));
-		//			}
-		//			patternRow.push(pRow);
-		//		}
-		//	}
-
-		//}
-	}
-	public class MODPatternList
-	{
-		public List<MODPattern> patterns = new List<MODPattern>();
-		public override string ToString()
+		private MODPatternChannel createNewPatternChannel(Stream stream, int nSamples)
 		{
-			string res = "";
-			
-			for (int i = 0; i < patterns.Count; i++)
-				res += i + ". Pattern:\n" + patterns[i].ToString();
-			
-			return res;
+			MODPatternChannel channel = new MODPatternChannel();
+			int b0 = stream.ReadByte();
+			int b1 = stream.ReadByte();
+			int b2 = stream.ReadByte();
+			int b3 = stream.ReadByte();
+
+			channel.instrument = ((b0 & 0xF0) | ((b2 & 0xF0) >> 4)) & nSamples;
+			channel.period = ((b0 & 0x0F) << 8) | b1;
+
+			if (channel.period > 0) channel.noteIndex = (MODConst.getNoteIndexForPeriod(channel.period) + 1);
+
+			channel.effekt = b2 & 0x0F;
+			channel.effektOp = b3;
+
+			return channel;
+		}
+
+		public void readPatternData(Stream stream, string modID, int nChannels, int nSamples)
+		{
+			if (modID == "FLT8") // StarTrekker is slightly different
+			{
+				for (int row = 0; row < 64; row++)
+				{
+					MODPatternRow pRow = new MODPatternRow();
+					for (int channel = 0; channel < 4; channel++)
+					{
+						pRow.patternChannels.Add(createNewPatternChannel(stream, nSamples));
+					}
+					for (int channel = 4; channel < 8; channel++) 
+						pRow.patternChannels.Add(new MODPatternChannel());
+					
+					patternRows.Add(pRow);
+				}
+				for (int row = 0; row < 64; row++)
+					for (int channel = 4; channel < 8; channel++)
+						patternRows[row].patternChannels[channel] =	createNewPatternChannel(stream, nSamples);
+			}
+			else
+			{
+				for (int row = 0; row < 64; row++)
+				{
+					MODPatternRow pRow = new MODPatternRow();
+					for (int channel = 0; channel < nChannels; channel++)
+						pRow.patternChannels.Add(createNewPatternChannel(stream, nSamples));
+
+					patternRows.Add(pRow);
+				}
+			}
 		}
 	}
 	public class MODMixerInfo
@@ -537,8 +487,8 @@ namespace ModuleSystem
 		public int nPatterns						= 0;
 		public int BPMSpeed							= 0;
 		public int tempo							= 0;
-		private List<MODInstrument> Instruments		= new List<MODInstrument>();
-		//public var patternsList:cPatternsList			= new cPatternsList();
+		private List<MODInstrument> instruments		= new List<MODInstrument>();
+		private List<MODPattern> patterns			= new List<MODPattern>();
 		public int songLength						= 0;
 		public List<int> arrangement 				= new List<int>();
 		public int baseVolume						= 0;
@@ -554,10 +504,10 @@ namespace ModuleSystem
 			DebugMes("MOD Sound Module created");
         }
 
-		public int getAllInstrumentsLength()
+		private long getAllInstrumentsLength()
 		{
-			int allSamplesLength = 0;
-			foreach (MODInstrument inst in Instruments)
+			long allSamplesLength = 0;
+			foreach (MODInstrument inst in instruments)
 				allSamplesLength += inst.length;
 
 			return allSamplesLength;
@@ -565,65 +515,175 @@ namespace ModuleSystem
 
 		public string InstrumentsToString()
 		{
-			string result = "";
+			string res = "Samples info : \n";
+
+			int i = 0;
+			foreach (MODInstrument inst in instruments)
+				res += ModuleUtils.getAsHex(i++, 2) + ':' + inst.ToString();
 
 			//if (sample.length > 0)
 			//{
 			//	result += 'Samples info : \n';
 			//	for (var i:int = 0; i < sample.length; i++)
 			//			{
-			//		result += (MODUtils.getAsHex(i, 2) + ':' + sample[i].toString());
+			//		result += (ModuleUtils.getAsHex(i, 2) + ':' + sample[i].toString());
 			//		result += '\n';
 			//	}
 			//}
 
-			return result;
+			return res;
 		}
 
 
-		private void readInstruments()
+		private void readInstruments(Stream stream)
 		{
 			for (int i = 0; i < nSamples; i++)
 			{
 				MODInstrument inst = new MODInstrument();
-				Instruments.Add(inst);
+				instruments.Add(inst);
+				inst.readInstrumentHeader(stream);
+				DebugMes(inst.ToString());
 			}
 		}
 
+		private void readArrangement(Stream stream)
+		{
+			songLength = stream.ReadByte(); // count of pattern in arrangement
+			stream.ReadByte();				// skip, ood old CIAA
+		
+			// always space for 128 pattern...
+			for (int i = 0; i < 128; i++) arrangement.Add(stream.ReadByte());
+
+
+			//string argmt = "Pattern order - ";
+			//for (int i = 0; i < songLength; i++)
+			//{
+			//	argmt += "" + (i + 1) + " : " + arrangement[i];
+			//	if (i < arrangement.Count - 1) argmt += " , ";
+			//}
+			//argmt += "\n";
+			//DebugMes(argmt);
+		}
+
+		private int calcPattCount()
+		{
+			int headerLen = 150; // Name+SongLen+CIAA+SongArrangement
+			if (nSamples > 15) headerLen += 4;  // Kennung
+						
+			int sampleLen = 0;
+			foreach (MODInstrument inst in instruments) sampleLen += 30 + inst.length;
+			
+			int spaceForPattern = (int)(fileLength - headerLen - sampleLen);
+		
+			// Lets find out about the highest Patternnumber used
+			// in the song arrangement
+			int maxPatternNumber = 0;
+			for (int i = 0; i < songLength; i++)
+			{
+				int patternNumber = arrangement[i];
+				if (patternNumber > maxPatternNumber && patternNumber < 0x80)
+					maxPatternNumber = arrangement[i];
+			}
+			maxPatternNumber++; // Highest number becomes highest count 
+
+			// It could be the WOW-Format:
+			if (modID == "M.K.")
+			{
+				// so check for 8 channels:
+				int totalPatternBytes = maxPatternNumber * 2048; //64*4*8
+				// This mod has 8 channels! --> WOW
+				if (totalPatternBytes == spaceForPattern)
+				{
+					isAmigaLike = true;
+					nChannels = 8;
+					trackerName = "Grave Composer";
+				}
+			}
+
+			int bytesPerPattern = 256 * nChannels; //64*4*nChannels
+			nPatterns = (int)(spaceForPattern / bytesPerPattern);
+			int bytesLeft = (int)(spaceForPattern % bytesPerPattern);
+
+			if (bytesLeft > 0) // It does not fit!
+			{
+				if (maxPatternNumber > nPatterns)
+				{
+					// The modfile is too short. The highest pattern is reaching into
+					// the sampledata, but it has to be read!
+					bytesLeft -= bytesPerPattern;
+					nPatterns = maxPatternNumber + 1;
+				}
+				else
+				{
+					// The modfile is too long. Sometimes this happens if composer
+					// add additional data to the modfile.
+					bytesLeft += (nPatterns - maxPatternNumber) * bytesPerPattern;
+					nPatterns = maxPatternNumber;
+				}
+				return bytesLeft;
+			}
+			
+			return 0;
+		}
+
+		private void readPatterns(Stream stream)
+		{
+			if (nSamples > 15) stream.Seek(4, SeekOrigin.Current);	// skip ModID, if not NoiseTracker:
+																	// Read the patterndata
+																	// Get the amount of pattern and keep "bytesLeft" in mind!
+			bytesLeft = calcPattCount();
+
+            for (int i = 0; i < nPatterns; i++)
+            {
+                MODPattern pattern = new MODPattern();
+                pattern.readPatternData(stream, modID, nChannels, nSamples);
+                patterns.Add(pattern);
+				DebugMes("Patern : " + i + pattern.ToString());
+            }
+        }
+
+		private void readInstrumentsData(Stream stream)
+		{
+			// Sampledata: If the modfile was too short, we need to recalculate:
+			if (bytesLeft < 0)
+			{
+				long calcSamplePos = getAllInstrumentsLength();
+				calcSamplePos = fileLength - calcSamplePos;
+				// do this only, if needed!
+				if (calcSamplePos < stream.Position) stream.Seek(calcSamplePos, SeekOrigin.Begin);
+			}
+
+			for (int i = 0; i < nSamples; i++) instruments[i].readInstrumentData(stream);
+		}
 
 		public override bool readFromStream(Stream stream)
 		{
-			checkFormat(stream);
-			setModType();
-
+			fileLength = stream.Length;
 			baseVolume = 128;
 			BPMSpeed = 125;
 			tempo = 6;
 
+			checkFormat(stream);
+			setModType();
+
+
 			stream.Seek(0, SeekOrigin.Begin);
 
-			songName = "";
-			for (int i = 0; i < 20; i++)
-			{
-				int s = stream.ReadByte();
-				if (s != 0) songName += (char)s;
-			}
+			songName = ModuleUtils.readString0(stream, 20);
 
 			nInstruments = nSamples;
 
-			//readInstruments(); // read instruments		
+			readInstruments(stream); // read instruments		
 
-			//readArrangement(); // read arrangement	
+			readArrangement(stream); // read pattern order	
 
-			//readPatterns(); // read patterns
+			readPatterns(stream); // read patterns
 
-			//readSamplesData(); // read samples data
+			readInstrumentsData(stream); // read samples data
 
 			//mixer = new cMODMixer(this);
 			//mixer.mixInfo.BPM = BPMSpeed;
 			//mixer.mixInfo.speed = tempo;
-
-			fileLength = stream.Length;
 
 			return true;
 		}
@@ -717,7 +777,7 @@ namespace ModuleSystem
 			//for (i = 0; i < songLength; i++)
 			//{
 			//	var pNum:int = arrangement[i];
-			//	modInfo += 'Pattern : ' + cMODUtils.getAsHex(pNum, 2) + '\n';
+			//	modInfo += 'Pattern : ' + cModuleUtils.getAsHex(pNum, 2) + '\n';
 			//	modInfo += patternsList.pattern[pNum].toString() + '\n';
 			//}
 
@@ -726,6 +786,68 @@ namespace ModuleSystem
 			return modInfo;
 		}
 
+		public override void PlayInstrument(int num)
+        {
+			if (num < 0 || num >= nSamples) return;
 
+			SoundPlayer player = new SoundPlayer();
+			BinaryWriter buffer = new BinaryWriter(new MemoryStream());
+			
+			MODInstrument inst = instruments[num];
+			
+			uint samplesPerSecond = 44100;
+			float frqMul = (float)(inst.baseFrequency) / (float)(samplesPerSecond);
+			DebugMes("BaseFreq = " + inst.baseFrequency + " Freq mull = " + frqMul);
+			uint soundBufferLen = (uint)(inst.length / frqMul); 
+			DebugMes("SoundBufferLen = " + soundBufferLen + " Instrument len = " + inst.length);
+
+			char[] chunkId = { 'R', 'I', 'F', 'F' };
+			char[] format = { 'W', 'A', 'V', 'E' };
+			char[] subchunk1Id = { 'f', 'm', 't', ' ' };
+			char[] subchunk2Id = { 'd', 'a', 't', 'a' };
+			uint subchunk1Size = 16;
+			uint headerSize = 8;
+			ushort audioFormat = 1;
+			ushort numChannels = 1;  // Mono - 1, Stereo - 2
+			ushort bitsPerSample = 16;
+			ushort blockAlign = (ushort)(numChannels * ((bitsPerSample + 7) / 8));
+			uint sampleRate = samplesPerSecond;
+			uint byteRate = sampleRate * blockAlign;
+			uint waveSize = 4;
+			uint subchunk2Size = soundBufferLen * blockAlign;
+			uint chunkSize = waveSize + headerSize + subchunk1Size + headerSize + subchunk2Size;
+
+			buffer.Write(chunkId);
+			buffer.Write(chunkSize);
+			buffer.Write(format);
+			buffer.Write(subchunk1Id);
+			buffer.Write(subchunk1Size);
+			buffer.Write(audioFormat);
+			buffer.Write(numChannels);
+			buffer.Write(sampleRate);
+			buffer.Write(byteRate);
+			buffer.Write(blockAlign);
+			buffer.Write(bitsPerSample);
+			buffer.Write(subchunk2Id);
+			buffer.Write(subchunk2Size);
+
+			float fpos = 0;
+			for (int i = 0; i < soundBufferLen; i++)
+			{
+				short s = 0;
+				if (fpos < inst.length)
+					s = (short)(32767 * inst.sampleData[(int)(fpos)]);
+				buffer.Write(s);
+				fpos += frqMul;
+			}
+
+			buffer.BaseStream.Seek(0, SeekOrigin.Begin);
+
+			player.Stream = buffer.BaseStream;
+			player.PlaySync();
+
+			buffer.Close();
+			player.Dispose();
+		}
 	}
 }
