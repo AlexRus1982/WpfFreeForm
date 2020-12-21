@@ -37,18 +37,17 @@ namespace WpfFreeFormModulePlayer
 
         private void OpenSound_Click(object sender, RoutedEventArgs e)
         {
-            var filePath = string.Empty;
-
+            var filePath = "";
             OpenFileDialog openFileDialog = new OpenFileDialog();
             openFileDialog.Title = "Browse MOD Files";
-            openFileDialog.InitialDirectory = "D:\\Progs\\music";
+            //openFileDialog.InitialDirectory = "D:\\Progs\\music";
+            openFileDialog.InitialDirectory = "d:\\!\\AS3_MOD_work2\\music\\mod\\";
             openFileDialog.Filter = "MOD Sound Files (*.mod)|*.mod|XM Sound Files (*.XM)|*.xm";
             openFileDialog.FilterIndex = 1;
             openFileDialog.RestoreDirectory = true;
 
             if (openFileDialog.ShowDialog() == true)
             {
-                //Get the path of specified file
                 filePath = openFileDialog.FileName;
                 mPlayer.OpenFromFile(filePath);
             }
