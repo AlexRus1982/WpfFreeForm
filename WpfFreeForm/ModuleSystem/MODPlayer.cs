@@ -340,5 +340,10 @@ namespace ModuleSystem
 			}
 			soundSystem.Play();
 		}
+		
+		public override void Play()
+        {
+			mixer.playModule(0);
+        }
 	}
 }

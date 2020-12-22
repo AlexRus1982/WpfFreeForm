@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace ModuleSystem
 {
@@ -237,12 +238,11 @@ namespace ModuleSystem
         public int freq = 0;
         public int lastFreq = 0;
         public float periodInc = 0;
-        public int instrumentPosition = 0;
-        public int instrumentPositionReal = 0;
+        public float instrumentPosition = 0;
         public int loopType = ModuleConst.LOOP_OFF;
         public bool instrumentLoopStart = false;
-        public int instrumentRepeatStart = 0;
-        public int instrumentRepeatStop = 0;
+        public float instrumentRepeatStart = 0;
+        public float instrumentRepeatStop = 0;
         public int instrumentLength = 0;
         public float instrumentVolume = 1.0f;
         public float channelVolume = 1.0f;
@@ -276,14 +276,26 @@ namespace ModuleSystem
         protected bool mixLoop = true;
         protected bool mixStart = false;
         protected bool soundSystemReady = true;
+        protected ModuleSoundSystem soundSystem = new ModuleSoundSystem();
 
         public ModuleMixer(SoundModule module)
         {
             this.module = module;
-            for (int i = 0; i < module.nChannels; i++) mixChannels.Add(new ModuleMixerChannel());
+            soundSystem.onPlayStart += SoundSystem_onPlayStart;
+            soundSystem.onPlayed += SoundSystem_onPlayed;
         }
 
-		public int calcSamplesPerTick(int currentBPM)
+        private void SoundSystem_onPlayed()
+        {
+            soundSystemReady = false;
+        }
+
+        private void SoundSystem_onPlayStart()
+        {
+            soundSystemReady = true;
+        }
+
+        public int calcSamplesPerTick(int currentBPM)
 		{
 			if (currentBPM <= 0) return 0;
 			return (int)((mixFreq * 2.5) / currentBPM);
@@ -319,7 +331,6 @@ namespace ModuleSystem
                     if (mc.instrument != mc.lastInstrument)
                     {
                         mc.instrumentPosition = 0;
-                        mc.instrumentPositionReal = 0;
                         mc.instrumentLength = mc.instrument.length;
                         mc.loopType = mc.instrument.loopType;
                         mc.instrumentLoopStart = false;
@@ -343,7 +354,6 @@ namespace ModuleSystem
                     if (mc.instrument != null)
                     {
                         mc.instrumentPosition = 0;
-                        mc.instrumentPositionReal = 0;
                         mc.instrumentLength = mc.instrument.length;
                         mc.loopType = mc.instrument.loopType;
                         mc.instrumentLoopStart = false;
@@ -366,7 +376,6 @@ namespace ModuleSystem
                     if (mc.instrument != null)
                     {
                         mc.instrumentPosition = 0;
-                        mc.instrumentPositionReal = 0;
                         mc.instrumentLength = mc.instrument.length;
                         mc.loopType = mc.instrument.loopType;
                         mc.instrumentLoopStart = false;
@@ -397,14 +406,14 @@ namespace ModuleSystem
 
         public virtual void updateNoteEffects()
         {
-            for (int ch = 0; ch < module.nChannels; ch++)
-                noteEffects[mixChannels[ch].effect](mixChannels[ch]);
+            //for (int ch = 0; ch < module.nChannels; ch++)
+            //    noteEffects[mixChannels[ch].effect](mixChannels[ch]);
         }
 
         public virtual void updateTickEffects()
         {
-            for (int ch = 0; ch < module.nChannels; ch++)
-                tickEffects[mixChannels[ch].effect](mixChannels[ch]);
+            //for (int ch = 0; ch < module.nChannels; ch++)
+            //    tickEffects[mixChannels[ch].effect](mixChannels[ch]);
         }
 
         public virtual void setBPM()
@@ -425,6 +434,106 @@ namespace ModuleSystem
 			counter++;
 		}
 
+		public virtual void playModule(int startPosition = 0)
+		{
+			played = false;
+			track = startPosition;
+
+			pattern = module.patterns[module.arrangement[track]];
+
+            mixChannels.Clear();
+            for (int i = 0; i < module.nChannels; i++) mixChannels.Add(new ModuleMixerChannel());
+
+            for (int ch = 0; ch < module.nChannels; ch++)
+			{
+                ModuleMixerChannel mc = mixChannels[ch];
+				mc.instrument = module.instruments[0];
+				mc.lastInstrument = module.instruments[0];
+			}
+
+            soundSystem.SetBufferLen((uint)mixBufferLen);
+
+            played = true;
+            Task.Factory.StartNew(() =>
+            {
+                mixTask();
+            });
+        }
+
+        protected virtual void mixTask()
+        {
+            while (played)
+            {
+                mixData();
+                int t = 0;
+                while (!soundSystemReady)
+                {
+                    t++;
+                }
+                
+                soundSystem.Play();
+            }
+        }
+
+		private void mixData()
+		{
+            //if (played) return;
+
+            //var startMixerTime:int = getTimer();
+            BinaryWriter buffer = soundSystem.getBuffer;
+            string ms = "";
+            for (int pos = 0; pos < mixBufferLen; pos++)
+			{
+				float mixValueR = 0;
+				float mixValueL = 0;
+				float mixValue = 0;
+				for (int ch = 0; ch < module.nChannels; ch++)
+				{
+                    ModuleMixerChannel mc = mixChannels[ch];
+					if (!mc.muted)
+					{
+						if ((mc.instrumentPosition >= mc.instrumentLength) && (!mc.instrumentLoopStart) && (mc.loopType == ModuleConst.LOOP_ON))
+							mc.instrumentLoopStart = true;
+
+						if ((mc.instrumentPosition >= mc.instrumentRepeatStop) && (mc.instrumentLoopStart))
+							mc.instrumentPosition = mc.instrumentRepeatStart;
+
+						if (mc.instrumentPosition < mc.instrumentLength)
+						{
+							//mixValue = int(getSampleValueSimple(mc.samplePosition, mc.samplePositionReal, mc.sample.sampleData) * mc.sampleVolume);
+							mixValue = mc.instrument.instrumentData[(int)mc.instrumentPosition] * mc.channelVolume;
+							//mixValueL += (((ch & 0x03) == 0) || ((ch & 0x03) == 3)) ? mixValue : 0;
+							//mixValueR += (((ch & 0x03) == 1) || ((ch & 0x03) == 2)) ? mixValue : 0;
+						}
+					}
+					mc.instrumentPosition += mc.periodInc;
+				}
+
+                //if (module.nChannels > 0)
+                //{
+                //	event.data.writeFloat(Number((mixValueL * 0.75 + mixValueR * 0.25) / (module.nChannels * 16384)));
+                //	event.data.writeFloat(Number((mixValueR * 0.75 + mixValueL * 0.25) / (module.nChannels * 16384)));
+                //}
+                //else
+                //{
+                //	event.data.writeFloat(0.0);
+                //	event.data.writeFloat(0.0);					
+                //}
+
+                buffer.Write((short)(32767 * mixValue));
+                if (pos < 1000) ms += (short)(32767 * mixValue) + ",";
+
+                mixerPosition ++;
+				if (mixerPosition >= samplesPerTick)
+				{
+					setBPM();
+					updateBPM();
+				}                
+			}
+            System.Diagnostics.Debug.WriteLine("Mixer -> " + ms);
+            //mixInfo.mixerTime = getTimer() - startMixerTime;
+        }
+
     }
 
     //	public class ModuleMixer
@@ -436,21 +545,6 @@ namespace ModuleSystem
     //		const MIX_SIGNED:Boolean 			= true;
     //		const REAL_PART_DIVIDER:int			= 256;
     //		const REAL_PART_SHIFT:int			= 8;
-
-    //		public function playModule(startPosition:int = 0):void
-    //		{
-    //			mixInfo.played = false;
-    //			mixInfo.track = startPosition;
-    //			mixInfo.pattern = module.patternsList.pattern[module.arrangement[mixInfo.track]];
-    //			for (var ch:int = 0; ch < module.nChannels; ch++)
-    //			{
-    //				var mc:cMixerChannel = mixChannels[ch];
-    //				mc.sample = module.instrumentsList.sample[0];
-    //				mc.lastSample = module.instrumentsList.sample[0];
-    //			}
-    //			mixerStart = true;
-    //			channel = snd.play();
-    //		}
 
     //		private function getSampleValueSimple(pos:int, rpos:int, sampleData:Array):int
     //		{
@@ -482,64 +576,6 @@ namespace ModuleSystem
     //  			var b2:int = ( a1 - a2 - a2 + a3);
     //  			var b3:int = (-a1 + a2 + a2 + a2 - a3 - a3 - a3 + a4);
     //  			return int(((b3 * posReal * 0.1666666 + b2 * 0.5) * posReal + b1 * 0.5) * posReal + b0 * 0.1666666);
-    //		}
-
-    //		private function mixData(event:SampleDataEvent):void
-    //		{
-    //			if (!mixerStart) return;
-    //			if (mixInfo.played) return;
-
-    //			var startMixerTime:int = getTimer();
-    //			for (var position:int = 0; position < MIX_BUFFER_LEN; position++)
-    //			{
-    //				var mixValueR:int = 0;
-    //				var mixValueL:int = 0;
-    //				var mixValue :int = 0;
-    //				for (var channel:int = 0; channel < module.nChannels; channel++)
-    //				{
-    //					var mc:cMixerChannel = mixChannels[channel];
-    //					if (!mc.muted)
-    //					{
-    //						if ((mc.samplePosition >= mc.sampleLength) && (!mc.sampleLoopStart) && (mc.loopType == cMODConst.LOOP_ON))
-    //							mc.sampleLoopStart = true;
-
-    //						if ((mc.samplePosition >= mc.sampleRepeatStop) && (mc.sampleLoopStart))
-    //						{
-    //							mc.samplePosition = mc.sampleRepeatStart;
-    //							mc.samplePositionReal = mc.samplePosition << REAL_PART_SHIFT;
-    //						}
-
-    //						if (mc.samplePosition < mc.sampleLength)
-    //						{
-    //							//mixValue = int(getSampleValueSimple(mc.samplePosition, mc.samplePositionReal, mc.sample.sampleData) * mc.sampleVolume);
-    //							mixValue = int(mc.sample.sampleData[mc.samplePosition] * mc.channelVolume);
-    //							mixValueL += (((channel & 0x03) == 0) || ((channel & 0x03) == 3)) ? mixValue : 0;
-    //							mixValueR += (((channel & 0x03) == 1) || ((channel & 0x03) == 2)) ? mixValue : 0;
-    //						}
-    //					}
-    //					mc.samplePositionReal += mc.periodInc;
-    //					mc.samplePosition = mc.samplePositionReal >> REAL_PART_SHIFT;
-    //				}
-
-    //				if (module.nChannels > 0)
-    //				{
-    //					event.data.writeFloat(Number((mixValueL * 0.75 + mixValueR * 0.25) / (module.nChannels * 16384)));
-    //					event.data.writeFloat(Number((mixValueR * 0.75 + mixValueL * 0.25) / (module.nChannels * 16384)));
-    //				}
-    //				else
-    //				{
-    //					event.data.writeFloat(0.0);
-    //					event.data.writeFloat(0.0);					
-    //				}
-
-    //				mixInfo.mixerPosition ++;
-    //				if (mixInfo.mixerPosition >= mixInfo.samplesPerTick)
-    //				{
-    //					setBPM();
-    //					updateBPM();
-    //				}
-    //			}
-    //			mixInfo.mixerTime = getTimer() - startMixerTime;
     //		}
 
     //		//note update
@@ -865,8 +901,8 @@ namespace ModuleSystem
         public int length = 0;  // full length (already *2 --> Mod-Fomat)
         public int fineTune = 0;    // Finetuning -8..+8
         public float volume = 0;    // Basisvolume
-        public int repeatStart = 0; // # of the loop start (already *2 --> Mod-Fomat)
-        public int repeatStop = 0;  // # of the loop end   (already *2 --> Mod-Fomat)
+        public float repeatStart = 0; // # of the loop start (already *2 --> Mod-Fomat)
+        public float repeatStop = 0;  // # of the loop end   (already *2 --> Mod-Fomat)
         public int repeatLength = 0;    // length of the loop
         public int loopType = 0;    // 0: no Looping, 1: normal, 2: pingpong, 3: backwards
         public int baseFrequency = 0;   // BaseFrequency
@@ -883,19 +919,19 @@ namespace ModuleSystem
             if (instrumentData == null || length == 0)
             {
                 repeatStop = repeatStart = 0;
-                repeatLength = repeatStop - repeatStart;
+                repeatLength = (int)(repeatStop - repeatStart);
                 loopType = 0;
                 return;
             }
             if (repeatStop > length)
             {
                 repeatStop = length;
-                repeatLength = repeatStop - repeatStart;
+                repeatLength = (int)(repeatStop - repeatStart);
             }
             if (repeatStart + 2 > repeatStop)
             {
                 repeatStop = repeatStart = 0;
-                repeatLength = repeatStop - repeatStart;
+                repeatLength = (int)(repeatStop - repeatStart);
                 loopType = 0;
             }
         }
@@ -956,7 +992,7 @@ namespace ModuleSystem
                 if (repeatStart < repeatStop) loopType = ModuleConst.LOOP_ON;
             }
             else loopType = 0;
-            repeatLength = repeatStop - repeatStart;
+            repeatLength = (int)(repeatStop - repeatStart);
         }
 
         public void readInstrumentData(Stream stream)

@@ -104,12 +104,12 @@ namespace ModuleSystem
             Task.Factory.StartNew(() =>
             {
                 BinaryWriter writer = (musicBuffer == 0) ? writer0 : writer1;
-                player.Stream = writer.BaseStream;
                 writer.BaseStream.Seek(0, SeekOrigin.Begin);
+                player.Stream = writer.BaseStream;
+                SwapBuffers();
                 onPlayStart?.Invoke();
                 player.PlaySync();
                 onPlayed?.Invoke();
-                SwapBuffers();
             });
         }
         public void Stop()
