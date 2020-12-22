@@ -77,7 +77,7 @@ namespace ModuleSystem
             ushort audioFormat = 1;
             ushort numChannels = 1;  // Mono - 1, Stereo - 2
             ushort bitsPerSample = 16;
-            ushort blockAlign = (ushort)(numChannels * ((bitsPerSample + 7) / 8));
+            ushort blockAlign = (ushort)(numChannels * (bitsPerSample / 8));
             uint sampleRate = samplesPerSecond;
             uint byteRate = sampleRate * blockAlign;
             uint waveSize = 4;

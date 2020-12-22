@@ -55,7 +55,7 @@ namespace WpfFreeFormModulePlayer
 
         private void StartSound_Click(object sender, RoutedEventArgs e)
         {
-            //mPlayer.PlayInstrument(7);
+            //mPlayer.PlayInstrument(5);
             mPlayer.Play();
         }
 

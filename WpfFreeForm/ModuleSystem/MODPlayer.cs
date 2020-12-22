@@ -64,22 +64,196 @@ namespace ModuleSystem
 
 	public class MODMixer : ModuleMixer
     {
-		private bool tickEffect_00(ModuleMixerChannel mc)
+		private bool noteEffect0(ModuleMixerChannel mc)
 		{
-			System.Diagnostics.Debug.WriteLine("tickEffect -> 00");
+            if (mc.effectArg == 0) return false;
+            mc.arpeggioCount = 0;
+            mc.arpeggioX = mc.effectArgX;
+            mc.arpeggioY = mc.effectArgY;
+            mc.arpeggioIndex = mc.noteIndex;
+            return true;
+		}
+
+		private bool noteEffect1(ModuleMixerChannel mc)
+		{
 			return true;
 		}
 
-		private bool tickEffect_01(ModuleMixerChannel mc)
+		private bool noteEffect2(ModuleMixerChannel mc)
 		{
-			System.Diagnostics.Debug.WriteLine("tickEffect -> 01");
 			return true;
 		}
 
+		private bool noteEffect3(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool noteEffect4(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool noteEffect5(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool noteEffect6(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool noteEffect7(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool noteEffect8(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool noteEffect9(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool noteEffectA(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool noteEffectB(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool noteEffectC(ModuleMixerChannel mc)
+        {
+            mc.channelVolume = (float)mc.effectArg / 0x40;
+            mc.channelVolume = (mc.channelVolume > 1.0f) ? 1.0f : mc.channelVolume;
+            return true;
+		}
+
+		private bool noteEffectD(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool noteEffectE(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool noteEffectF(ModuleMixerChannel mc)
+		{
+            if ((mc.effectArg >= 0x20) && (mc.effectArg <= 0xFF))
+            {
+                BPM = mc.effectArg;
+                setBPM();
+            }
+            else if ((mc.effectArg > 0) && (mc.effectArg <= 0x1F))
+                speed = mc.effectArg;
+
+            return true;
+		}
+
+		//-----------------------------------------------
+		private bool tickEffect0(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool tickEffect1(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool tickEffect2(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool tickEffect3(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool tickEffect4(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool tickEffect5(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool tickEffect6(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool tickEffect7(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool tickEffect8(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool tickEffect9(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool tickEffectA(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool tickEffectB(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool tickEffectC(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool tickEffectD(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool tickEffectE(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool tickEffectF(ModuleMixerChannel mc)
+		{
+			return true;
+		}
 		public MODMixer(SoundModule module) : base(module)
         {
-			tickEffects.Add(tickEffect_00);
-			tickEffects.Add(tickEffect_01);
+			noteEffects.Add(noteEffect0); noteEffects.Add(noteEffect1); noteEffects.Add(noteEffect2);
+			noteEffects.Add(noteEffect3); noteEffects.Add(noteEffect4); noteEffects.Add(noteEffect5);
+			noteEffects.Add(noteEffect6); noteEffects.Add(noteEffect7); noteEffects.Add(noteEffect8);
+			noteEffects.Add(noteEffect9); noteEffects.Add(noteEffectA); noteEffects.Add(noteEffectB);
+			noteEffects.Add(noteEffectC); noteEffects.Add(noteEffectD); noteEffects.Add(noteEffectE);
+			noteEffects.Add(noteEffectF);
+
+			tickEffects.Add(tickEffect0); tickEffects.Add(tickEffect1); tickEffects.Add(tickEffect2);
+			tickEffects.Add(tickEffect3); tickEffects.Add(tickEffect4); tickEffects.Add(tickEffect5);
+			tickEffects.Add(tickEffect6); tickEffects.Add(tickEffect7); tickEffects.Add(tickEffect8);
+			tickEffects.Add(tickEffect9); tickEffects.Add(tickEffectA); tickEffects.Add(tickEffectB);
+			tickEffects.Add(tickEffectC); tickEffects.Add(tickEffectD); tickEffects.Add(tickEffectE);
+			tickEffects.Add(tickEffectF);
 		}
 	}
 

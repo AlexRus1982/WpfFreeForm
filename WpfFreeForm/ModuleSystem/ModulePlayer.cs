@@ -251,7 +251,7 @@ namespace ModuleSystem
     public class ModuleMixer
     {
         protected int mixFreq = 44100;
-        protected int mixBufferLen = 1024;
+        protected int mixBufferLen = 44100 * 60;
         protected int mixBits = 16;
         protected int mixChnls = 2;
 
@@ -303,7 +303,7 @@ namespace ModuleSystem
 
 		public float calcPeriodIncrement(int period)
 		{			
-			if (period != 0) return ((float)period * 2 / (float)mixFreq);
+			if (period != 0) return ((float)(3546895 / period) / (float)mixFreq);
 			else return 1.0f;
 		}
 
@@ -327,7 +327,7 @@ namespace ModuleSystem
 
                 if ((pe.instrument > 0) && (pe.period == 0))
                 {
-                    mc.instrument = module.instruments[pe.instrument];
+                    mc.instrument = module.instruments[pe.instrument - 1];
                     if (mc.instrument != mc.lastInstrument)
                     {
                         mc.instrumentPosition = 0;
@@ -349,7 +349,7 @@ namespace ModuleSystem
                 {
                     mc.lastInstrument = mc.instrument;
                     mc.lastFineTune = mc.currentFineTune;
-                    mc.instrument = module.instruments[pe.instrument];
+                    mc.instrument = module.instruments[pe.instrument - 1];
                     mc.currentFineTune = mc.instrument.fineTune;
                     if (mc.instrument != null)
                     {
@@ -406,14 +406,14 @@ namespace ModuleSystem
 
         public virtual void updateNoteEffects()
         {
-            //for (int ch = 0; ch < module.nChannels; ch++)
-            //    noteEffects[mixChannels[ch].effect](mixChannels[ch]);
+            for (int ch = 0; ch < module.nChannels; ch++)
+                noteEffects[mixChannels[ch].effect](mixChannels[ch]);
         }
 
         public virtual void updateTickEffects()
         {
-            //for (int ch = 0; ch < module.nChannels; ch++)
-            //    tickEffects[mixChannels[ch].effect](mixChannels[ch]);
+            for (int ch = 0; ch < module.nChannels; ch++)
+                tickEffects[mixChannels[ch].effect](mixChannels[ch]);
         }
 
         public virtual void setBPM()
@@ -440,6 +440,9 @@ namespace ModuleSystem
 			track = startPosition;
 
 			pattern = module.patterns[module.arrangement[track]];
+            //module.BPMSpeed = 229;
+            //module.tempo = 5;
+            System.Diagnostics.Debug.WriteLine("Mixer -> " + module.BPMSpeed);
 
             mixChannels.Clear();
             for (int i = 0; i < module.nChannels; i++) mixChannels.Add(new ModuleMixerChannel());
@@ -462,17 +465,19 @@ namespace ModuleSystem
 
         protected virtual void mixTask()
         {
-            while (played)
-            {
-                mixData();
-                int t = 0;
-                while (!soundSystemReady)
-                {
-                    t++;
-                }
-                
-                soundSystem.Play();
-            }
+            //while (played)
+            //{
+            //    mixData();
+            //    int t = 0;
+            //    while (!soundSystemReady)
+            //    {
+            //        t++;
+            //    }
+
+            //    soundSystem.Play();
+            //}
+            mixData();
+            soundSystem.Play();
         }
 
 		private void mixData()
@@ -481,7 +486,7 @@ namespace ModuleSystem
 
             //var startMixerTime:int = getTimer();
             BinaryWriter buffer = soundSystem.getBuffer;
-            string ms = "";
+            string ms = " channels " + module.nChannels + " ";
             for (int pos = 0; pos < mixBufferLen; pos++)
 			{
 				float mixValueR = 0;
@@ -501,7 +506,7 @@ namespace ModuleSystem
 						if (mc.instrumentPosition < mc.instrumentLength)
 						{
 							//mixValue = int(getSampleValueSimple(mc.samplePosition, mc.samplePositionReal, mc.sample.sampleData) * mc.sampleVolume);
-							mixValue = mc.instrument.instrumentData[(int)mc.instrumentPosition] * mc.channelVolume;
+							mixValue += mc.instrument.instrumentData[(int)mc.instrumentPosition] * mc.channelVolume;
 							//mixValueL += (((ch & 0x03) == 0) || ((ch & 0x03) == 3)) ? mixValue : 0;
 							//mixValueR += (((ch & 0x03) == 1) || ((ch & 0x03) == 2)) ? mixValue : 0;
 						}
@@ -520,8 +525,8 @@ namespace ModuleSystem
                 //	event.data.writeFloat(0.0);					
                 //}
 
-                buffer.Write((short)(32767 * mixValue));
-                if (pos < 1000) ms += (short)(32767 * mixValue) + ",";
+                buffer.Write((short)(32767 * mixValue / module.nChannels));
+                if (pos < 1000) ms += (short)(32767 * mixValue / module.nChannels) + ",";
 
                 mixerPosition ++;
 				if (mixerPosition >= samplesPerTick)
@@ -579,14 +584,6 @@ namespace ModuleSystem
     //		}
 
     //		//note update
-    //		function nEffect_00(mc:cMixerChannel):void
-    //		{
-    //			if (mc.effectArg == 0) return;
-    //			mc.arpeggioCount = 0;
-    //			mc.arpeggioX = mc.effectArgX;
-    //			mc.arpeggioY = mc.effectArgY;
-    //			mc.arpeggioIndex = mc.noteIndex;
-    //		}		
     //		function nEffect_01(mc:cMixerChannel):void
     //		{
     //			mc.portamentoStart 	= mc.period;
@@ -969,8 +966,8 @@ namespace ModuleSystem
 
             baseFrequency = ModuleConst.getNoteFreq(24, fine);
 
-            int vol = stream.ReadByte() & 0x7F; // volume 64 is maximum
-            volume = (vol > 64) ? 1.0f : (float)(vol / 64);
+            int vol = stream.ReadByte(); // volume 64 is maximum
+            volume = (vol > 64) ? 1.0f : (float)vol / 64.0f;
 
             //// Repeat start and stop
             repeatStart = ModuleUtils.readWord(stream) * 2;
