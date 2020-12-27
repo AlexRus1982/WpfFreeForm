@@ -108,8 +108,22 @@ namespace ModuleSystem
                 player.Stream = writer.BaseStream;
                 SwapBuffers();
                 onPlayStart?.Invoke();
+
+                var startTime = System.Diagnostics.Stopwatch.StartNew();
+
                 player.PlaySync();
+
+                startTime.Stop();
+                var resultTime = startTime.Elapsed;
+                string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:000}",
+                                                    resultTime.Hours,
+                                                    resultTime.Minutes,
+                                                    resultTime.Seconds,
+                                                    resultTime.Milliseconds);
+                System.Diagnostics.Debug.WriteLine("End playing, time played = " + elapsedTime);
+
                 onPlayed?.Invoke();
+                System.Diagnostics.Debug.WriteLine("End playing task.");
             });
         }
         public void Stop()
