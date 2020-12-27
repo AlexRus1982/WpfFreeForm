@@ -584,60 +584,6 @@ namespace ModuleSystem
     //		}
 
     //		//note update
-    //		function nEffect_01(mc:cMixerChannel):void
-    //		{
-    //			mc.portamentoStart 	= mc.period;
-    //			mc.periodInc		= calcPeriodIncrement(mc.period, MIX_FREQ);
-    //			mc.portamentoStep 	= mc.effectArg;
-    //		}		
-    //		function nEffect_02(mc:cMixerChannel):void
-    //		{
-    //			mc.portamentoStart 	= mc.period;
-    //			mc.periodInc		= calcPeriodIncrement(mc.period, MIX_FREQ);
-    //			mc.portamentoStep 	= mc.effectArg;
-    //		}		
-    //		function nEffect_03(mc:cMixerChannel):void
-    //		{			
-    //			if (!mc.noNote)
-    //			{
-    //				mc.portamentoStart 	= mc.lastPeriod;
-    //				mc.portamentoEnd 	= mc.period;
-    //			}
-    //			if (mc.effectArg != 0) mc.portamentoStep = mc.effectArg;
-    //			mc.periodInc = calcPeriodIncrement(mc.portamentoStart, MIX_FREQ);
-
-    //		}
-    //		function nEffect_04(mc:cMixerChannel):void
-    //		{
-    //			if ((mc.vibratoType <= 0x03)&&(mc.effectArg != 0)) mc.vibratoCount = 0;			
-    //			mc.vibratoStart = mc.period;
-    //			if (mc.effectArgX != 0) mc.vibratoFreq = mc.effectArgX;
-    //			if (mc.effectArgY != 0)	mc.vibratoAmp  = mc.effectArgY;
-    //		}
-    //		function nEffect_05(mc:cMixerChannel):void
-    //		{
-    //			nEffect_0A(mc);
-    //			if (!mc.noNote)
-    //			{
-    //				mc.portamentoStart 	= mc.lastPeriod;
-    //				mc.portamentoEnd 	= mc.period;
-    //			}
-    //			mc.periodInc = calcPeriodIncrement(mc.portamentoStart, MIX_FREQ);
-    //		}
-    //		function nEffect_06(mc:cMixerChannel):void
-    //		{
-    //			nEffect_0A(mc);
-    //			if (mc.vibratoType <= 0x03) mc.vibratoCount = 0;			
-    //			mc.vibratoStart = mc.period;			
-    //		}
-    //		function nEffect_07(mc:cMixerChannel):void
-    //		{
-    //			if (mc.tremoloType <= 0x03) mc.tremoloCount = 0;			
-    //			mc.tremoloStart = mc.channelVolume;
-    //			if (mc.effectArgX != 0) mc.vibratoFreq = mc.effectArgX;
-    //			if (mc.effectArgY != 0) mc.vibratoAmp  = mc.effectArgY;
-    //		}
-    //		function nEffect_08(mc:cMixerChannel):void{}
     //		function nEffect_09(mc:cMixerChannel):void
     //		{
     //			mc.samplePosition = mc.effectArg << 8;
@@ -685,11 +631,6 @@ namespace ModuleSystem
     //			mixInfo.track = mc.patternNumToJump;
     //			mixInfo.pattern = mc.patternToJump;
     //		}
-    //		function nEffect_0C(mc:cMixerChannel):void
-    //		{
-    //			mc.channelVolume = Number(mc.effectArg / 0x40);
-    //			mc.channelVolume = (mc.channelVolume > 1.0) ? 1.0 : mc.channelVolume;
-    //		}
     //		function nEffect_0D(mc:cMixerChannel):void
     //		{
     //			mc.patternJumpCounter = 0;
@@ -705,17 +646,7 @@ namespace ModuleSystem
     //		{
     //			effectsE[mc.effectArgX](mc);
     //		}
-    //		function nEffect_0F(mc:cMixerChannel):void
-    //		{			
-    //			if ((mc.effectArg >= 0x20) && (mc.effectArg <= 0xFF))
-    //			{
-    //				mixInfo.BPM = mc.effectArg;
-    //				setBPM();
-    //			}
-    //			else 
-    //				if ((mc.effectArg > 0) && (mc.effectArg <= 0x1F))
-    //					mixInfo.speed = mc.effectArg;
-    //		}
+
 
     //		//tick update
     //		function tEffect_00(mc:cMixerChannel):void

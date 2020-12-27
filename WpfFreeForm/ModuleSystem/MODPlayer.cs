@@ -76,37 +76,68 @@ namespace ModuleSystem
 
 		private bool noteEffect1(ModuleMixerChannel mc)
 		{
-			return true;
+            mc.portamentoStart = mc.period;
+            mc.periodInc = calcPeriodIncrement(mc.period);
+            mc.portamentoStep = mc.effectArg;
+            return true;
 		}
 
 		private bool noteEffect2(ModuleMixerChannel mc)
 		{
-			return true;
+            mc.portamentoStart = mc.period;
+            mc.periodInc = calcPeriodIncrement(mc.period);
+            mc.portamentoStep = mc.effectArg;
+            return true;
 		}
 
 		private bool noteEffect3(ModuleMixerChannel mc)
 		{
-			return true;
+            if (!mc.noNote)
+            {
+                mc.portamentoStart = mc.lastPeriod;
+                mc.portamentoEnd = mc.period;
+            }
+            if (mc.effectArg != 0) mc.portamentoStep = mc.effectArg;
+            mc.periodInc = calcPeriodIncrement(mc.portamentoStart);
+            return true;
 		}
 
 		private bool noteEffect4(ModuleMixerChannel mc)
 		{
-			return true;
+            if ((mc.vibratoType <= 0x03) && (mc.effectArg != 0)) mc.vibratoCount = 0;
+            mc.vibratoStart = mc.period;
+            if (mc.effectArgX != 0) mc.vibratoFreq = mc.effectArgX;
+            if (mc.effectArgY != 0) mc.vibratoAmp = mc.effectArgY;
+            return true;
 		}
 
 		private bool noteEffect5(ModuleMixerChannel mc)
 		{
-			return true;
+            noteEffectA(mc);
+            if (!mc.noNote)
+            {
+                mc.portamentoStart = mc.lastPeriod;
+                mc.portamentoEnd = mc.period;
+            }
+            mc.periodInc = calcPeriodIncrement(mc.portamentoStart);
+            return true;
 		}
 
 		private bool noteEffect6(ModuleMixerChannel mc)
 		{
-			return true;
+            noteEffectA(mc);
+            if (mc.vibratoType <= 0x03) mc.vibratoCount = 0;
+            mc.vibratoStart = mc.period;
+            return true;
 		}
 
 		private bool noteEffect7(ModuleMixerChannel mc)
 		{
-			return true;
+            //if (mc.tremoloType <= 0x03) mc.tremoloCount = 0;
+            //mc.tremoloStart = mc.channelVolume;
+            //if (mc.effectArgX != 0) mc.vibratoFreq = mc.effectArgX;
+            //if (mc.effectArgY != 0) mc.vibratoAmp = mc.effectArgY;
+            return true;
 		}
 
 		private bool noteEffect8(ModuleMixerChannel mc)
@@ -159,10 +190,23 @@ namespace ModuleSystem
             return true;
 		}
 
-		//-----------------------------------------------
+		//----------------------------------------------------------------------------------------------
 		private bool tickEffect0(ModuleMixerChannel mc)
 		{
-			return true;
+            if (mc.effectArg == 0) return false;
+            int periodBoard = 72;
+            int halfToneX = (mc.arpeggioIndex + mc.arpeggioX);
+            if (halfToneX > periodBoard) halfToneX = periodBoard;
+            int halfToneY = (mc.arpeggioIndex + mc.arpeggioY);
+            if (halfToneY > periodBoard) halfToneY = periodBoard;
+            int arpeggioPeriod = 0;
+            if (mc.arpeggioCount == 0) arpeggioPeriod = ModuleConst.getNotePeriod(mc.arpeggioIndex - 1, mc.currentFineTune);
+            if (mc.arpeggioCount == 1) arpeggioPeriod = ModuleConst.getNotePeriod(halfToneX - 1, mc.currentFineTune);
+			//if (mc.arpeggioCount == 2) arpeggioPeriod   = ModuleConst.getNotePeriod(mc.arpeggioIndex - 1, mc.currentFineTune);
+			if (mc.arpeggioCount == 2) arpeggioPeriod = ModuleConst.getNotePeriod(halfToneY - 1, mc.currentFineTune);
+            if (mc.arpeggioIndex != 0) mc.periodInc = calcPeriodIncrement(arpeggioPeriod);
+            mc.arpeggioCount = (mc.arpeggioCount + 1) % 3;
+            return true;
 		}
 
 		private bool tickEffect1(ModuleMixerChannel mc)
@@ -239,6 +283,89 @@ namespace ModuleSystem
 		{
 			return true;
 		}
+
+		//----------------------------------------------------------------------------------------------
+		private bool effectE0(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool effectE1(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool effectE2(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool effectE3(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool effectE4(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool effectE5(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool effectE6(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool effectE7(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool effectE8(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool effectE9(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool effectEA(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool effectEB(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool effectEC(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool effectED(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool effectEE(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		private bool effectEF(ModuleMixerChannel mc)
+		{
+			return true;
+		}
+
+		//----------------------------------------------------------------------------------------------
 		public MODMixer(SoundModule module) : base(module)
         {
 			noteEffects.Add(noteEffect0); noteEffects.Add(noteEffect1); noteEffects.Add(noteEffect2);
@@ -254,6 +381,13 @@ namespace ModuleSystem
 			tickEffects.Add(tickEffect9); tickEffects.Add(tickEffectA); tickEffects.Add(tickEffectB);
 			tickEffects.Add(tickEffectC); tickEffects.Add(tickEffectD); tickEffects.Add(tickEffectE);
 			tickEffects.Add(tickEffectF);
+
+			effectsE.Add(effectE0); effectsE.Add(effectE1); effectsE.Add(effectE2);
+			effectsE.Add(effectE3); effectsE.Add(effectE4); effectsE.Add(effectE5);
+			effectsE.Add(effectE6); effectsE.Add(effectE7); effectsE.Add(effectE8);
+			effectsE.Add(effectE9); effectsE.Add(effectEA); effectsE.Add(effectEB);
+			effectsE.Add(effectEC); effectsE.Add(effectED); effectsE.Add(effectEE);
+			effectsE.Add(effectEF);
 		}
 	}
 
@@ -379,7 +513,7 @@ namespace ModuleSystem
                 MODPattern pattern = new MODPattern();
                 pattern.readPatternData(stream, modID, nChannels, nSamples);
                 patterns.Add(pattern);
-				//DebugMes("Patern : " + i + pattern.ToString());
+				DebugMes("Patern : " + i + pattern.ToString());
             }
         }
 
