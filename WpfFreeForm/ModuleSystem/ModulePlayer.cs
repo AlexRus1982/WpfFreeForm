@@ -252,7 +252,7 @@ namespace ModuleSystem
     public class ModuleMixer
     {
         protected int mixFreq = 44100;
-        protected int mixBufferLen = 44100 * 5;
+        protected int mixBufferLen = 44100 * 60;
         protected int mixBits = 16;
         protected int mixChnls = 2;
 
@@ -509,6 +509,11 @@ namespace ModuleSystem
             //{
             //    mixTask();
             //});
+        }
+
+        public virtual void Stop()
+        {
+            soundSystem.Stop();
         }
 
         protected virtual void mixTask()

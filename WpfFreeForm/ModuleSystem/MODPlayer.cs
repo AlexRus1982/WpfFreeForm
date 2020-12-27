@@ -653,5 +653,10 @@ namespace ModuleSystem
         {
 			mixer.playModule(0);
         }
+
+		public override void Stop()
+		{
+			mixer.Stop();
+		}
 	}
 }
