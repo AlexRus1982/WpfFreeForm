@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
-using System.Threading;
+using System.Media;
 using System.Threading.Tasks;
 
 namespace ModuleSystem
@@ -279,54 +279,109 @@ namespace ModuleSystem
         protected bool soundSystemReady = false;
         protected bool mixingReady = false;
         protected ModuleSoundSystem soundSystem = new ModuleSoundSystem();
-        private Thread soundThread = null;
-        private Thread mixingThread = null;
+
+        private SoundPlayer player0 = new SoundPlayer();
+        private SoundPlayer player1 = new SoundPlayer();
+        private BinaryWriter writer0 = new BinaryWriter(new MemoryStream());
+        private BinaryWriter writer1 = new BinaryWriter(new MemoryStream());
+        private uint musicBuffer = 0;
 
         public ModuleMixer(SoundModule module)
         {
             this.module = module;
-            soundSystem.onPlayStart += SoundSystem_onPlayStart;
-            soundSystem.onPlayed += SoundSystem_onPlayed;
-
-            //soundThread = new Thread(new ThreadStart(soundSystemThread));
-            //mixingThread = new Thread(new ThreadStart(mixingSystemThread));
+            WriteWavHeader(writer0);
+            WriteWavHeader(writer1);
         }
 
-        private void soundSystemThread()
+        private void WriteWavHeader(BinaryWriter writer)
         {
-            while (played)
+            char[] chunkId = { 'R', 'I', 'F', 'F' };
+            char[] format = { 'W', 'A', 'V', 'E' };
+            char[] subchunk1Id = { 'f', 'm', 't', ' ' };
+            char[] subchunk2Id = { 'd', 'a', 't', 'a' };
+            uint subchunk1Size = 16;
+            uint headerSize = 8;
+            ushort audioFormat = 1;
+            ushort numChannels = 1;  // Mono - 1, Stereo - 2
+            ushort bitsPerSample = 16;
+            ushort blockAlign = (ushort)(numChannels * (bitsPerSample / 8));
+            uint sampleRate = (uint)mixFreq;
+            uint byteRate = sampleRate * blockAlign;
+            uint waveSize = 4;
+            uint subchunk2Size = (uint)mixBufferLen * blockAlign;
+            uint chunkSize = waveSize + headerSize + subchunk1Size + headerSize + subchunk2Size;
+
+            writer.Write(chunkId);
+            writer.Write(chunkSize);
+            writer.Write(format);
+            writer.Write(subchunk1Id);
+            writer.Write(subchunk1Size);
+            writer.Write(audioFormat);
+            writer.Write(numChannels);
+            writer.Write(sampleRate);
+            writer.Write(byteRate);
+            writer.Write(blockAlign);
+            writer.Write(bitsPerSample);
+            writer.Write(subchunk2Id);
+            writer.Write(subchunk2Size);
+        }
+
+        private void SoundSystem_onPlayed0()
+        {
+            Task.Factory.StartNew(() =>
             {
-                int t = 0;
-                while (!mixingReady)
-                {
-                    t++;
-                    if (t % 100000 == 0) System.Diagnostics.Debug.WriteLine("Wait for mixing " + t);
-                }
-                soundSystem.Play();
-            }
-        }
-        private void mixingSystemThread()
-        {
-            while (played)
-            {
-                mixingReady = false;
-                mixData();
-                System.Diagnostics.Debug.WriteLine("Mixer -> data mixed!!!");
-                mixingReady = true;
-                int t = 0;
-                while (!soundSystemReady)
-                {
-                    t++;
-                    if (t % 100000 == 0) System.Diagnostics.Debug.WriteLine("Wait for playing " + t);
-                }
-            }
-        }
+                writer1.BaseStream.Seek(0, SeekOrigin.Begin);
+                player1.Stream = writer1.BaseStream;
 
-        private void SoundSystem_onPlayed()
-        {
-            soundSystem.Play();
-//            soundSystemReady = true;
+                SwapBuffers();
+                SoundSystem_onPlayStart();
+
+                var startTime = System.Diagnostics.Stopwatch.StartNew();
+
+                player1.PlaySync();
+
+                startTime.Stop();
+                var resultTime = startTime.Elapsed;
+                string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:000}",
+                                                    resultTime.Hours,
+                                                    resultTime.Minutes,
+                                                    resultTime.Seconds,
+                                                    resultTime.Milliseconds);
+                System.Diagnostics.Debug.WriteLine("End playing, time played = " + elapsedTime);
+
+                SoundSystem_onPlayed1();
+                System.Diagnostics.Debug.WriteLine("End playing task.");
+            });
             System.Diagnostics.Debug.WriteLine("SoundSystem -> end play buffer");            
+        }
+
+        private void SoundSystem_onPlayed1()
+        {
+            Task.Factory.StartNew(() =>
+            {
+                writer0.BaseStream.Seek(0, SeekOrigin.Begin);
+                player0.Stream = writer0.BaseStream;
+
+                SwapBuffers();
+                SoundSystem_onPlayStart();
+
+                var startTime = System.Diagnostics.Stopwatch.StartNew();
+
+                player0.PlaySync();
+
+                startTime.Stop();
+                var resultTime = startTime.Elapsed;
+                string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:000}",
+                                                    resultTime.Hours,
+                                                    resultTime.Minutes,
+                                                    resultTime.Seconds,
+                                                    resultTime.Milliseconds);
+                System.Diagnostics.Debug.WriteLine("End playing, time played = " + elapsedTime);
+
+                SoundSystem_onPlayed0();
+                System.Diagnostics.Debug.WriteLine("End playing task.");
+            });
+            System.Diagnostics.Debug.WriteLine("SoundSystem -> end play buffer");
         }
 
         private void SoundSystem_onPlayStart()
@@ -337,6 +392,12 @@ namespace ModuleSystem
                 mixData();
             });
         }
+
+        public void SwapBuffers()
+        {
+            musicBuffer = musicBuffer ^ 1;
+        }
+
 
         public int calcSamplesPerTick(int currentBPM)
 		{
@@ -498,7 +559,7 @@ namespace ModuleSystem
             soundSystem.SetBufferLen((uint)mixBufferLen);
 
             mixData();
-            soundSystem.Play();
+            SoundSystem_onPlayed1();
 
             //played = true;
             //mixingThread.Start();
@@ -535,7 +596,11 @@ namespace ModuleSystem
             //if (played) return;
 
             //var startMixerTime:int = getTimer();
-            BinaryWriter buffer = soundSystem.getBuffer;
+            BinaryWriter buffer = (musicBuffer == 0) ? writer0 : writer1;
+            buffer.BaseStream.SetLength(0);
+            WriteWavHeader(buffer);
+            buffer.BaseStream.Seek(44, SeekOrigin.Begin);
+
             string ms = " channels " + module.nChannels + " ";
             for (int pos = 0; pos < mixBufferLen; pos++)
 			{
