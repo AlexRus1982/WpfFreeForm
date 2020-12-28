@@ -7,10 +7,6 @@ namespace ModuleSystem
 {
     public partial class ModuleSoundSystem
     {
-        public delegate void SoundSystemEvent();
-        public event SoundSystemEvent onPlayed;
-        public event SoundSystemEvent onPlayStart;
-
         private uint samplesPerSecond = 22050;
         private uint musicBufferLen = 0;
 

@@ -445,8 +445,6 @@ namespace ModuleSystem
                 mixChannels.Add(mc);
             }
 
-            //soundSystem.SetBufferLen((uint)mixBufferLen);
-
             var startTime = System.Diagnostics.Stopwatch.StartNew();
             System.Diagnostics.Debug.WriteLine("Start mixing -> ...");
 
@@ -469,27 +467,16 @@ namespace ModuleSystem
             System.Diagnostics.Debug.WriteLine("Mixing data length = " + mixingBuffer.BaseStream.Length);
 
             int secondsAll = (int)mixingBuffer.BaseStream.Length / (2 * mixFreq);
-            int min = secondsAll / 60;
-            int sec = secondsAll % 60;
-            System.Diagnostics.Debug.WriteLine("Mixing data music length = " + min + "." + sec);
+            TimeSpan t = TimeSpan.FromSeconds(secondsAll);
+            System.Diagnostics.Debug.WriteLine("Mixing data music length = " + t.ToString());
 
             BinaryWriter soundBuffer = soundSystem.getBuffer;
             soundSystem.SetBufferLen((uint)mixingBuffer.BaseStream.Length / 2);
             mixingBuffer.BaseStream.Seek(0, SeekOrigin.Begin);
-            //for (int i = 0; i < mixingBuffer.BaseStream.Length; i++)
             mixingBuffer.BaseStream.CopyTo(soundBuffer.BaseStream);
 
             soundSystem.Play();
 
-            //played = true;
-            //mixingThread.Start();
-            //soundThread.Start();
-
-            //played = true;
-            //Task.Factory.StartNew(() =>
-            //{
-            //    mixTask();
-            //});
         }
 
         public virtual void Stop()
@@ -499,9 +486,6 @@ namespace ModuleSystem
 
 		private void mixData()
 		{
-            //if (played) return;
-
-            //var startMixerTime:int = getTimer();
             string ms = " channels " + module.nChannels + " ";
             for (int pos = 0; pos < mixBufferLen; pos++)
 			{
@@ -542,7 +526,6 @@ namespace ModuleSystem
                 //}
 
                 mixingBuffer.Write((short)(32767 * mixValue / module.nChannels));
-                //if (pos < 1000) ms += (short)(32767 * mixValue / module.nChannels) + ",";
 
                 mixerPosition ++;
 				if (mixerPosition >= samplesPerTick)
@@ -551,9 +534,7 @@ namespace ModuleSystem
 					updateBPM();
 				}                
 			}
-            //mixInfo.mixerTime = getTimer() - startMixerTime;
         }
-
     }
 
     //	public class ModuleMixer
@@ -1055,9 +1036,6 @@ namespace ModuleSystem
         public List<ModulePattern> patterns = new List<ModulePattern>();
         public List<int> arrangement = new List<int>();
 
-        //public var onLoaded:Function 					= doNothing;
-        //public var onProgress:Function 				= doNothing;
-
         protected int bytesLeft = 0;
 
 
@@ -1077,18 +1055,6 @@ namespace ModuleSystem
         public SoundModule(string soundModuleName)
         {
             SoundModuleName = soundModuleName;
-            soundSystem.onPlayed += Player_onPlayed;
-            soundSystem.onPlayStart += Player_onPlayStart;
-        }
-
-        private void Player_onPlayed()
-        {
-            DebugMes("Stop play event!"); ;
-        }
-
-        private void Player_onPlayStart()
-        {
-            DebugMes("Start play event!"); ;
         }
 
         public virtual bool checkFormat(Stream stream)
