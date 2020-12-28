@@ -130,7 +130,7 @@ namespace ModuleSystem
         public static string COPYRIGHT = "Copyright by Alex 2020";
         public static string FULLVERSION = PROGRAM + " " + VERSION + " " + COPYRIGHT;
 
-        public const int SOUNDFREQUENCY = 44100;
+        public const int SOUNDFREQUENCY = 22050;
         public const int SOUNDBITS = 16;
         public const int MONO = 0x01;
         public const int STEREO = 0x02;
@@ -251,8 +251,8 @@ namespace ModuleSystem
 
     public class ModuleMixer
     {
-        protected int mixFreq = 44100;
-        protected int mixBufferLen = 44100 * 60;
+        protected int mixFreq = 22050;
+        protected int mixBufferLen = 8192;
         protected int mixBits = 16;
         protected int mixChnls = 2;
 
@@ -263,6 +263,7 @@ namespace ModuleSystem
         protected List<Func<ModuleMixerChannel, bool>> effectsE = new List<Func<ModuleMixerChannel, bool>>();
 
         protected bool played = false;
+        protected bool moduleEnd = false;
         protected int counter = 0;
         protected int speed = 6;
         protected int patternDelay = 0;
@@ -279,63 +280,11 @@ namespace ModuleSystem
         protected bool soundSystemReady = false;
         protected bool mixingReady = false;
         protected ModuleSoundSystem soundSystem = new ModuleSoundSystem();
-        private Thread soundThread = null;
-        private Thread mixingThread = null;
+        protected BinaryWriter mixingBuffer = new BinaryWriter(new MemoryStream());
 
         public ModuleMixer(SoundModule module)
         {
             this.module = module;
-            soundSystem.onPlayStart += SoundSystem_onPlayStart;
-            soundSystem.onPlayed += SoundSystem_onPlayed;
-
-            //soundThread = new Thread(new ThreadStart(soundSystemThread));
-            //mixingThread = new Thread(new ThreadStart(mixingSystemThread));
-        }
-
-        private void soundSystemThread()
-        {
-            while (played)
-            {
-                int t = 0;
-                while (!mixingReady)
-                {
-                    t++;
-                    if (t % 100000 == 0) System.Diagnostics.Debug.WriteLine("Wait for mixing " + t);
-                }
-                soundSystem.Play();
-            }
-        }
-        private void mixingSystemThread()
-        {
-            while (played)
-            {
-                mixingReady = false;
-                mixData();
-                System.Diagnostics.Debug.WriteLine("Mixer -> data mixed!!!");
-                mixingReady = true;
-                int t = 0;
-                while (!soundSystemReady)
-                {
-                    t++;
-                    if (t % 100000 == 0) System.Diagnostics.Debug.WriteLine("Wait for playing " + t);
-                }
-            }
-        }
-
-        private void SoundSystem_onPlayed()
-        {
-            soundSystem.Play();
-//            soundSystemReady = true;
-            System.Diagnostics.Debug.WriteLine("SoundSystem -> end play buffer");            
-        }
-
-        private void SoundSystem_onPlayStart()
-        {
-            System.Diagnostics.Debug.WriteLine("SoundSystem -> Start play buffer");
-            Task.Factory.StartNew(() =>
-            {
-                mixData();
-            });
         }
 
         public int calcSamplesPerTick(int currentBPM)
@@ -436,12 +385,13 @@ namespace ModuleSystem
                 track++;
                 if (track >= module.songLength)
                 {
-                    if (!mixLoop) played = true;
-                    else
-                    {
-                        track = 0;
-                        pattern = module.patterns[module.arrangement[track]];
-                    }
+                    moduleEnd = true;
+                    //if (!mixLoop) played = true;
+                    //else
+                    //{
+                    //    track = 0;
+                    //    pattern = module.patterns[module.arrangement[track]];
+                    //}
                 }
                 else pattern = module.patterns[module.arrangement[track]];
             }
@@ -495,9 +445,40 @@ namespace ModuleSystem
                 mixChannels.Add(mc);
             }
 
-            soundSystem.SetBufferLen((uint)mixBufferLen);
+            //soundSystem.SetBufferLen((uint)mixBufferLen);
 
-            mixData();
+            var startTime = System.Diagnostics.Stopwatch.StartNew();
+            System.Diagnostics.Debug.WriteLine("Start mixing -> ...");
+
+            mixingBuffer.BaseStream.SetLength(0);
+
+            moduleEnd = false;
+            while (!moduleEnd)
+            {
+                mixData();
+            }
+
+            startTime.Stop();
+            var resultTime = startTime.Elapsed;
+            string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:000}",
+                                                resultTime.Hours,
+                                                resultTime.Minutes,
+                                                resultTime.Seconds,
+                                                resultTime.Milliseconds);
+            System.Diagnostics.Debug.WriteLine("End mixing, time to mix = " + elapsedTime);
+            System.Diagnostics.Debug.WriteLine("Mixing data length = " + mixingBuffer.BaseStream.Length);
+
+            int secondsAll = (int)mixingBuffer.BaseStream.Length / (2 * mixFreq);
+            int min = secondsAll / 60;
+            int sec = secondsAll % 60;
+            System.Diagnostics.Debug.WriteLine("Mixing data music length = " + min + "." + sec);
+
+            BinaryWriter soundBuffer = soundSystem.getBuffer;
+            soundSystem.SetBufferLen((uint)mixingBuffer.BaseStream.Length / 2);
+            mixingBuffer.BaseStream.Seek(0, SeekOrigin.Begin);
+            //for (int i = 0; i < mixingBuffer.BaseStream.Length; i++)
+            mixingBuffer.BaseStream.CopyTo(soundBuffer.BaseStream);
+
             soundSystem.Play();
 
             //played = true;
@@ -516,31 +497,11 @@ namespace ModuleSystem
             soundSystem.Stop();
         }
 
-        protected virtual void mixTask()
-        {
-            //while (played)
-            //{
-            //    mixData();
-            //    int t = 0;
-            //    while (!soundSystemReady)
-            //    {
-            //        t++;
-            //    }
-
-            //    soundSystem.Play();
-            //}
-            mixData();
-            soundSystem.Play();
-        }
-
 		private void mixData()
 		{
-            var startTime = System.Diagnostics.Stopwatch.StartNew();
-            System.Diagnostics.Debug.WriteLine("Start mixing -> ...");
             //if (played) return;
 
             //var startMixerTime:int = getTimer();
-            BinaryWriter buffer = soundSystem.getBuffer;
             string ms = " channels " + module.nChannels + " ";
             for (int pos = 0; pos < mixBufferLen; pos++)
 			{
@@ -580,7 +541,7 @@ namespace ModuleSystem
                 //	event.data.writeFloat(0.0);					
                 //}
 
-                buffer.Write((short)(32767 * mixValue / module.nChannels));
+                mixingBuffer.Write((short)(32767 * mixValue / module.nChannels));
                 //if (pos < 1000) ms += (short)(32767 * mixValue / module.nChannels) + ",";
 
                 mixerPosition ++;
@@ -590,14 +551,6 @@ namespace ModuleSystem
 					updateBPM();
 				}                
 			}
-            startTime.Stop();
-            var resultTime = startTime.Elapsed;
-            string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:000}",
-                                                resultTime.Hours,
-                                                resultTime.Minutes,
-                                                resultTime.Seconds,
-                                                resultTime.Milliseconds);
-            System.Diagnostics.Debug.WriteLine("End mixing, time to mix = " + elapsedTime);
             //mixInfo.mixerTime = getTimer() - startMixerTime;
         }
 

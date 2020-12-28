@@ -631,7 +631,7 @@ namespace ModuleSystem
 			//DebugMes("Instruments count - " + instruments.Count);
 			ModuleInstrument inst = instruments[num];
 			
-			uint samplesPerSecond = 44100;
+			uint samplesPerSecond = 22050;
 			float baseFreq = /*3546895.0f / */(float)(inst.baseFrequency * 2);
 			float frqMul = baseFreq / (float)(samplesPerSecond);
 			DebugMes("BaseFreq = " + inst.baseFrequency + " Freq mull = " + frqMul);

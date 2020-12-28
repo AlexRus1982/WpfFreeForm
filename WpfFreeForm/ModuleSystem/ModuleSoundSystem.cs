@@ -11,25 +11,20 @@ namespace ModuleSystem
         public event SoundSystemEvent onPlayed;
         public event SoundSystemEvent onPlayStart;
 
-        private uint samplesPerSecond = 44100;
-        private uint musicBufferLen = 500;
+        private uint samplesPerSecond = 22050;
+        private uint musicBufferLen = 0;
 
         private SoundPlayer player = new SoundPlayer();
-        private BinaryWriter writer0 = new BinaryWriter(new MemoryStream());
-        private BinaryWriter writer1 = new BinaryWriter(new MemoryStream());
-        private uint musicBuffer = 0;
+        private BinaryWriter writer = new BinaryWriter(new MemoryStream());
         
         public ModuleSoundSystem()
         {
-            WriteWavHeader(writer0);
-            WriteWavHeader(writer1);
         }
 
         public BinaryWriter getBuffer
         {
             get
             {
-                BinaryWriter writer = (musicBuffer == 0) ? writer0 : writer1;
                 writer.BaseStream.SetLength(0);
                 WriteWavHeader(writer);
                 writer.BaseStream.Seek(44, SeekOrigin.Begin);
@@ -48,15 +43,9 @@ namespace ModuleSystem
         public void SetBufferLen(uint len)
         {
             musicBufferLen = len;
-            BinaryWriter writer = (musicBuffer == 0) ? writer0 : writer1;
             writer.BaseStream.SetLength(0);
             WriteWavHeader(writer);
             writer.BaseStream.Seek(44, SeekOrigin.Begin);
-        }
-
-        public void SwapBuffers()
-        {
-            musicBuffer = musicBuffer ^ 1;
         }
 
         private void DebugMes(string mes)
@@ -101,31 +90,11 @@ namespace ModuleSystem
         
         public void Play()
         {
-            Task.Factory.StartNew(() =>
-            {
-                BinaryWriter writer = (musicBuffer == 0) ? writer0 : writer1;
-                writer.BaseStream.Seek(0, SeekOrigin.Begin);
-                player.Stream = writer.BaseStream;
-                SwapBuffers();
-                onPlayStart?.Invoke();
-
-                var startTime = System.Diagnostics.Stopwatch.StartNew();
-
-                player.PlaySync();
-
-                startTime.Stop();
-                var resultTime = startTime.Elapsed;
-                string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:000}",
-                                                    resultTime.Hours,
-                                                    resultTime.Minutes,
-                                                    resultTime.Seconds,
-                                                    resultTime.Milliseconds);
-                System.Diagnostics.Debug.WriteLine("End playing, time played = " + elapsedTime);
-
-                onPlayed?.Invoke();
-                System.Diagnostics.Debug.WriteLine("End playing task.");
-            });
+            writer.BaseStream.Seek(0, SeekOrigin.Begin);
+            player.Stream = writer.BaseStream;
+            player.Play();
         }
+
         public void Stop()
         {
             player.Stop();
