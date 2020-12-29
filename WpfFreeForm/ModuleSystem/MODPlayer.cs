@@ -71,15 +71,15 @@ namespace ModuleSystem
             mc.arpeggioX = mc.effectArgX;
             mc.arpeggioY = mc.effectArgY;
             mc.arpeggioIndex = mc.noteIndex;
-			mc.arpeggioPeriod0 = ModuleConst.getNotePeriod(mc.noteIndex, mc.currentFineTune);
+			mc.arpeggioPeriod0 = ModuleConst.getNotePeriod(mc.noteIndex - 1, mc.currentFineTune);
 			mc.arpeggioPeriod1 = mc.arpeggioPeriod0;
 			mc.arpeggioPeriod2 = mc.arpeggioPeriod0;
 
 			if (mc.noteIndex + mc.effectArgX < 60)
-				mc.arpeggioPeriod1 = ModuleConst.getNotePeriod(mc.noteIndex + mc.effectArgX, mc.currentFineTune);
+				mc.arpeggioPeriod1 = ModuleConst.getNotePeriod(mc.noteIndex + mc.effectArgX - 1, mc.currentFineTune);
 
 			if (mc.noteIndex + mc.effectArgY < 60)
-				mc.arpeggioPeriod2 = ModuleConst.getNotePeriod(mc.noteIndex + mc.effectArgY, mc.currentFineTune);
+				mc.arpeggioPeriod2 = ModuleConst.getNotePeriod(mc.noteIndex + mc.effectArgY - 1, mc.currentFineTune);
 
 			return true;
 		}
@@ -253,16 +253,16 @@ namespace ModuleSystem
 
 		private bool tickEffect3(ModuleMixerChannel mc)
 		{
-			mc.portamentoStart += mc.portamentoStep;
-
-			if (Math.Abs(mc.portamentoEnd - mc.portamentoStart) < Math.Abs(mc.portamentoStep))
-                mc.portamentoStart = mc.portamentoEnd;
-
             if (mc.portamentoStart < 113) mc.portamentoStart = 113;
             if (mc.portamentoStart > 856) mc.portamentoStart = 856;
 
             mc.periodInc = calcPeriodIncrement(mc.portamentoStart);
             mc.period = mc.portamentoStart;
+
+			mc.portamentoStart += mc.portamentoStep;
+
+			if (Math.Abs(mc.portamentoEnd - mc.portamentoStart) < Math.Abs(mc.portamentoStep))
+                mc.portamentoStart = mc.portamentoEnd;
             return true;
 		}
 
