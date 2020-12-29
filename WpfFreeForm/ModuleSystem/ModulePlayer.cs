@@ -206,7 +206,9 @@ namespace ModuleSystem
         public int patternNumToJump = 0;
         public int positionToJump = 0;
 
-        public int arpeggioPeriod = 0;
+        public int arpeggioPeriod0 = 0;
+        public int arpeggioPeriod1 = 0;
+        public int arpeggioPeriod2 = 0;
         public int arpeggioCount = 0;
         public int arpeggioIndex = 0;
         public int arpeggioX = 0;
@@ -495,6 +497,7 @@ namespace ModuleSystem
 				for (int ch = 0; ch < module.nChannels; ch++)
 				{
                     ModuleMixerChannel mc = mixChannels[ch];
+                    //if (ch != 0) mc.muted = true;
 					if (!mc.muted)
 					{
 						if ((mc.instrumentPosition >= mc.instrumentLength) && (!mc.instrumentLoopStart) && (mc.loopType == ModuleConst.LOOP_ON))
@@ -527,7 +530,7 @@ namespace ModuleSystem
 
                 mixingBuffer.Write((short)(32767 * mixValue / module.nChannels));
 
-                mixerPosition ++;
+                mixerPosition++;
 				if (mixerPosition >= samplesPerTick)
 				{
 					setBPM();
@@ -594,28 +597,6 @@ namespace ModuleSystem
     //				mc.samplePositionReal = mc.samplePosition << REAL_PART_SHIFT;
     //			}					
     //		}
-    //		function nEffect_0A(mc:cMixerChannel):void
-    //		{
-    //			mc.volumeSlideStart = false;
-    //			if (mc.effectArgX != 0)
-    //			{
-    //				mc.volumeSlideX = Number(mc.effectArgX / 0x40);
-    //				mc.volumeSlideY = 0;
-    //			}
-
-    //			if (mc.effectArgY != 0)
-    //			{
-    //				mc.volumeSlideX = 0;
-    //				mc.volumeSlideY = Number(mc.effectArgY / 0x40);
-    //			}
-    //			/*
-    //			mc.channelVolume += mc.volumeSlideX * (mixInfo.speed - 1);
-    //			mc.channelVolume -= mc.volumeSlideY * (mixInfo.speed - 1);
-
-    //			mc.channelVolume = (mc.channelVolume < 0.0) ? 0.0 : mc.channelVolume;
-    //			mc.channelVolume = (mc.channelVolume > 1.0) ? 1.0 : mc.channelVolume;			
-    //			*/
-    //		}
     //		function nEffect_0B(mc:cMixerChannel):void
     //		{
     //			mc.patternJumpCounter = 0;
@@ -638,79 +619,8 @@ namespace ModuleSystem
     //			mixInfo.track++;
     //			mixInfo.pattern = mc.patternToJump;	
     //		}
-    //		function nEffect_0E(mc:cMixerChannel):void
-    //		{
-    //			effectsE[mc.effectArgX](mc);
-    //		}
-
 
     //		//tick update
-    //		function tEffect_00(mc:cMixerChannel):void
-    //		{
-    //			if (mc.effectArg == 0) return;
-    //			var periodBoard:int = 72;
-    //			var halfToneX:int = (mc.arpeggioIndex + mc.arpeggioX);
-    //			if (halfToneX > periodBoard) halfToneX = periodBoard;
-    //			var halfToneY:int = (mc.arpeggioIndex + mc.arpeggioY);
-    //			if (halfToneY > periodBoard) halfToneY = periodBoard;
-    //			var arpeggioPeriod:int = 0;
-    //			if (mc.arpeggioCount == 0) arpeggioPeriod   = cMODConst.getNotePeriod(mc.arpeggioIndex - 1, mc.currentFineTune);
-    //			if (mc.arpeggioCount == 1) arpeggioPeriod 	= cMODConst.getNotePeriod(halfToneX - 1, mc.currentFineTune);
-    //			//if (mc.arpeggioCount == 2) arpeggioPeriod   = cMODConst.getNotePeriod(mc.arpeggioIndex - 1, mc.currentFineTune);
-    //			if (mc.arpeggioCount == 2) arpeggioPeriod 	= cMODConst.getNotePeriod(halfToneY - 1, mc.currentFineTune);
-    //			if (mc.arpeggioIndex != 0) mc.periodInc = calcPeriodIncrement(arpeggioPeriod, MIX_FREQ);
-    //			mc.arpeggioCount = (mc.arpeggioCount + 1) % 3;
-    //		}		
-    //		function tEffect_01(mc:cMixerChannel):void
-    //		{
-    //			mc.period -= mc.portamentoStep;
-    //			if (mc.period < 113)	mc.period = 113;
-    //			mc.periodInc = calcPeriodIncrement(mc.period, MIX_FREQ);
-    //			mc.period -= mc.portamentoStep;			
-    //		}
-    //		function tEffect_02(mc:cMixerChannel):void
-    //		{
-    //			mc.period += mc.portamentoStep;			
-    //			if (mc.period > 836) mc.period = 836;
-    //			mc.periodInc = calcPeriodIncrement(mc.period, MIX_FREQ);
-    //		}
-    //		function tEffect_03(mc:cMixerChannel):void
-    //		{
-    //			if (mc.portamentoEnd < mc.portamentoStart)
-    //			{
-    //				mc.portamentoStart -= mc.portamentoStep;
-    //				if (mc.portamentoStart <= mc.portamentoEnd) mc.portamentoStart = mc.portamentoEnd;
-    //			}
-    //			else
-    //			{
-    //				mc.portamentoStart += mc.portamentoStep;
-    //				if (mc.portamentoStart >= mc.portamentoEnd) mc.portamentoStart = mc.portamentoEnd;
-    //			}
-
-    //			if (mc.portamentoStart < 113) mc.portamentoStart = 113;
-    //			if (mc.portamentoEnd < 113) mc.portamentoEnd = 113;
-    //			if (mc.portamentoStart > 836) mc.portamentoStart = 836;
-    //			if (mc.portamentoEnd > 836) mc.portamentoEnd = 836;
-
-    //			mc.periodInc = calcPeriodIncrement(mc.portamentoStart, MIX_FREQ);			
-    //			mc.period = mc.portamentoStart;
-    //		}
-    //		function tEffect_04(mc:cMixerChannel):void
-    //		{
-    //			if ((mc.vibratoAmp > 0) && (mc.vibratoFreq > 0))
-    //			{
-    //				if (mc.vibratoType % 4 == 0) mc.vibratoAdd = cMODConst.ModSinusTable	[mc.vibratoCount];
-    //				if (mc.vibratoType % 4 == 1) mc.vibratoAdd = cMODConst.ModRampDownTable	[mc.vibratoCount];
-    //				if (mc.vibratoType % 4 == 2) mc.vibratoAdd = cMODConst.ModSquareTable	[mc.vibratoCount];
-    //				if (mc.vibratoType % 4 == 3) mc.vibratoAdd = cMODConst.ModRandomTable	[mc.vibratoCount];
-    //			}
-    //			var period = mc.vibratoStart + int(mc.vibratoAdd * mc.vibratoAmp / 128);
-    //			if (period < 113) period = 113;
-    //			if (period > 836) period = 836;
-
-    //			mc.periodInc = calcPeriodIncrement(period, MIX_FREQ);
-    //			mc.vibratoCount = (mc.vibratoCount + mc.vibratoFreq) & 0x3F;
-    //		}
     //		function tEffect_05(mc:cMixerChannel):void
     //		{
     //			tEffect_0A(mc);
@@ -806,14 +716,6 @@ namespace ModuleSystem
     //		}
     //		function effect_EC(mc:cMixerChannel):void{}
     //		function effect_ED(mc:cMixerChannel):void{}
-    //		function effect_EE(mc:cMixerChannel):void
-    //		{
-    //			mixInfo.patternDelay = mc.effectArgY;
-    //			mc.effect = mc.lastEffect;
-    //			mc.effectArg = mc.lastEffectArg;
-    //			mc.effectArgX = mc.lastEffectArgX;
-    //			mc.effectArgY = mc.lastEffectArgY;
-    //		}
     //		function effect_EF(mc:cMixerChannel):void{}
 
     //	}
