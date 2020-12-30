@@ -116,8 +116,11 @@ namespace ModuleSystem
 		{
             if ((mc.vibratoType <= 0x03) && (mc.effectArg != 0)) mc.vibratoCount = 0;
             mc.vibratoStart = mc.period;
-            if (mc.effectArgX != 0) mc.vibratoFreq = mc.effectArgX;
-            if (mc.effectArgY != 0) mc.vibratoAmp = mc.effectArgY;
+            if (mc.effectArgX != 0 && mc.effectArgY != 0)
+            {
+                mc.vibratoFreq = mc.effectArgX;
+                mc.vibratoAmp = mc.effectArgY;
+            }
             return true;
 		}
 
@@ -277,7 +280,7 @@ namespace ModuleSystem
             }
             var period = mc.vibratoStart + (int)(mc.vibratoAdd * mc.vibratoAmp / 128);
             if (period < 113) period = 113;
-            if (period > 836) period = 836;
+            if (period > 856) period = 856;
 
             mc.periodInc = calcPeriodIncrement(period);
             mc.vibratoCount = (mc.vibratoCount + mc.vibratoFreq) & 0x3F;

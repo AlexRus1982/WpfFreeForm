@@ -497,7 +497,7 @@ namespace ModuleSystem
 				for (int ch = 0; ch < module.nChannels; ch++)
 				{
                     ModuleMixerChannel mc = mixChannels[ch];
-                    if (ch != 3) mc.muted = true;
+                    if (ch != 1) mc.muted = true;
 					if (!mc.muted)
 					{
 						if ((mc.instrumentPosition >= mc.instrumentLength) && (!mc.instrumentLoopStart) && (mc.loopType == ModuleConst.LOOP_ON))
