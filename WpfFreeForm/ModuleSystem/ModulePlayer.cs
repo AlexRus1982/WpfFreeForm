@@ -100,7 +100,7 @@ namespace ModuleSystem
                 {
                     int diff1 = getNotePeriod(note - 1, 0) - period;
                     int diff2 = period - getNotePeriod(note, 0);
-                    if (diff1 < diff2) return note - 1;
+                    if (diff1 < diff2) return note;
                     note++;
                 }
             }
@@ -197,10 +197,12 @@ namespace ModuleSystem
         public int portamentoStart = 0;
         public int portamentoEnd = 0;
         public int portamentoStep = 0;
+        public int lastPortamentoStep = 0;
 
         public bool volumeSlideStart = false;
         public float volumeSlideX = 0;
         public float volumeSlideY = 0;
+        public float volumeSlideStep = 0;
 
         public int patternJumpCounter = 0;
         public int patternNumToJump = 0;
@@ -220,6 +222,8 @@ namespace ModuleSystem
         public int vibratoCount = 0;
         public int vibratoAmp = 0;
         public int vibratoFreq = 0;
+        public int lastVibratoAmp = 0;
+        public int lastVibratoFreq = 0;
 
         public int tremoloType = 0;
         public int tremoloStart = 0;
@@ -229,7 +233,7 @@ namespace ModuleSystem
         public int tremoloFreq = 0;
 
         public int noteIndex = 0;
-        public bool noNote = true;
+        public bool isNote = false;
         public int lastNoteIndex = 0;
 
         public ModuleInstrument instrument = null;
@@ -237,11 +241,13 @@ namespace ModuleSystem
         public int currentFineTune = 0;
         public int lastFineTune = 0;
         public int period = 0;
+        public int slideToPeriod = 0;
+        public int notePeriod = 0;
         public int lastPeriod = 0;
         public int freq = 0;
         public int lastFreq = 0;
         public float periodInc = 0;
-        public float instrumentPosition = 0;
+        public float instrumentPosition = 2;
         public int loopType = ModuleConst.LOOP_OFF;
         public bool instrumentLoopStart = false;
         public float instrumentRepeatStart = 0;
@@ -301,6 +307,18 @@ namespace ModuleSystem
 			else return 1.0f;
 		}
 
+        public virtual void resetChannelInstrument(ModuleMixerChannel mc)
+        {
+            //mc.instrumentPosition = 2;
+            mc.instrumentLength = mc.instrument.length;
+            mc.loopType = mc.instrument.loopType;
+            mc.instrumentLoopStart = false;
+            mc.instrumentRepeatStart = mc.instrument.repeatStart;
+            mc.instrumentRepeatStop = mc.instrument.repeatStop;
+            mc.channelVolume = mc.instrument.volume;
+            mc.currentFineTune = mc.instrument.fineTune;
+        }
+
         public virtual void updateNote()
         {
             patternDelay = 0;
@@ -319,65 +337,37 @@ namespace ModuleSystem
                 mc.effectArgX = (mc.effectArg & 0xF0) >> 4;
                 mc.effectArgY = (mc.effectArg & 0x0F);
 
-                if ((pe.instrument > 0) && (pe.period == 0))
-                {
-                    mc.instrument = module.instruments[pe.instrument - 1];
-                    if (mc.instrument != mc.lastInstrument)
-                    {
-                        mc.instrumentPosition = 0;
-                        mc.instrumentLength = mc.instrument.length;
-                        mc.loopType = mc.instrument.loopType;
-                        mc.instrumentLoopStart = false;
-                        mc.instrumentRepeatStart = mc.instrument.repeatStart;
-                        mc.instrumentRepeatStop = mc.instrument.repeatStop;
-                        mc.channelVolume = mc.instrument.volume;
-                        mc.lastInstrument = mc.instrument;
-                    }
-                    else
-                    {
-                        mc.channelVolume = mc.instrument.volume;
-                    }
-                }
+                mc.lastPeriod = mc.period;
 
-                if ((pe.instrument > 0) && (pe.period > 0))
+                if (pe.instrument > 0)
                 {
                     mc.lastInstrument = mc.instrument;
                     mc.lastFineTune = mc.currentFineTune;
                     mc.instrument = module.instruments[pe.instrument - 1];
                     mc.currentFineTune = mc.instrument.fineTune;
-                    if (mc.instrument != null)
-                    {
-                        mc.instrumentPosition = 0;
-                        mc.instrumentLength = mc.instrument.length;
-                        mc.loopType = mc.instrument.loopType;
-                        mc.instrumentLoopStart = false;
-                        mc.instrumentRepeatStart = mc.instrument.repeatStart;
-                        mc.instrumentRepeatStop = mc.instrument.repeatStop;
-                        mc.channelVolume = mc.instrument.volume;
-                        mc.lastInstrument = mc.instrument;
-                    }
+                    resetChannelInstrument(mc);
+                    if (pe.effekt != 0x03)
+                        mc.instrumentPosition = 2;
                 }
 
                 if (pe.period > 0)
                 {
-                    mc.noNote = false;
+                    mc.isNote = true;
                     mc.lastNoteIndex = mc.noteIndex;
-                    mc.noteIndex = pe.noteIndex;
-                    mc.lastPeriod = mc.period;
-                    if (mc.instrument != null) mc.period = ModuleConst.getNotePeriod(mc.noteIndex - 1, mc.currentFineTune);
-                    else mc.period = 0;
-                    mc.periodInc = calcPeriodIncrement(mc.period);
-                    if (mc.instrument != null)
+                    if (pe.effekt != 0x03)
                     {
-                        mc.instrumentPosition = 0;
-                        mc.instrumentLength = mc.instrument.length;
-                        mc.loopType = mc.instrument.loopType;
-                        mc.instrumentLoopStart = false;
-                        mc.instrumentRepeatStart = mc.instrument.repeatStart;
-                        mc.instrumentRepeatStop = mc.instrument.repeatStop;
+                        mc.noteIndex = pe.noteIndex;
+                        mc.instrumentPosition = 2;
+                        mc.period = ModuleConst.getNotePeriod(mc.noteIndex - 1, mc.currentFineTune);
+                        mc.periodInc = calcPeriodIncrement(mc.period);
                     }
+                    else
+                        mc.slideToPeriod = ModuleConst.getNotePeriod(pe.noteIndex - 1, mc.currentFineTune);
                 }
-                else mc.noNote = true;
+                else
+                {
+                    mc.isNote = false;
+                }
             }
 
             currentRow++;
@@ -429,21 +419,22 @@ namespace ModuleSystem
 			counter++;
 		}
 
-		public virtual void playModule(int startPosition = 0)
-		{
-			track = startPosition;
 
-			pattern = module.patterns[module.arrangement[track]];
+        public void mixModule(int startPosition = 0)
+        {
+            track = startPosition;
+
+            pattern = module.patterns[module.arrangement[track]];
             //module.BPMSpeed = 229;
             //module.tempo = 5;
             System.Diagnostics.Debug.WriteLine("Mixer -> " + module.BPMSpeed);
 
             mixChannels.Clear();
             for (int ch = 0; ch < module.nChannels; ch++)
-			{
+            {
                 ModuleMixerChannel mc = new ModuleMixerChannel();
-				mc.instrument = module.instruments[0];
-				mc.lastInstrument = module.instruments[0];
+                mc.instrument = module.instruments[0];
+                mc.lastInstrument = module.instruments[0];
                 mixChannels.Add(mc);
             }
 
@@ -476,9 +467,11 @@ namespace ModuleSystem
             soundSystem.SetBufferLen((uint)mixingBuffer.BaseStream.Length / 2);
             mixingBuffer.BaseStream.Seek(0, SeekOrigin.Begin);
             mixingBuffer.BaseStream.CopyTo(soundBuffer.BaseStream);
+        }
 
+        public virtual void playModule(int startPosition = 0)
+		{
             soundSystem.Play();
-
         }
 
         public virtual void Stop()
@@ -497,7 +490,7 @@ namespace ModuleSystem
 				for (int ch = 0; ch < module.nChannels; ch++)
 				{
                     ModuleMixerChannel mc = mixChannels[ch];
-                    if (ch != 1) mc.muted = true;
+                    //if (ch != 1) mc.muted = true;
 					if (!mc.muted)
 					{
 						if ((mc.instrumentPosition >= mc.instrumentLength) && (!mc.instrumentLoopStart) && (mc.loopType == ModuleConst.LOOP_ON))
@@ -506,7 +499,7 @@ namespace ModuleSystem
 						if ((mc.instrumentPosition >= mc.instrumentRepeatStop) && (mc.instrumentLoopStart))
 							mc.instrumentPosition = mc.instrumentRepeatStart;
 
-						if (mc.instrumentPosition < mc.instrumentLength)
+                        if (mc.instrumentPosition < mc.instrumentLength)
 						{
 							//mixValue = int(getSampleValueSimple(mc.samplePosition, mc.samplePositionReal, mc.sample.sampleData) * mc.sampleVolume);
 							mixValue += mc.instrument.instrumentData[(int)mc.instrumentPosition] * mc.channelVolume;
@@ -583,20 +576,6 @@ namespace ModuleSystem
     //		}
 
     //		//note update
-    //		function nEffect_09(mc:cMixerChannel):void
-    //		{
-    //			mc.samplePosition = mc.effectArg << 8;
-    //			mc.samplePositionReal = mc.samplePosition << REAL_PART_SHIFT;
-
-    //			if ((mc.samplePosition >= mc.sampleLength) && (!mc.sampleLoopStart) && (mc.loopType == cMODConst.LOOP_ON))
-    //					mc.sampleLoopStart = true;
-
-    //			if ((mc.samplePosition >= mc.sampleRepeatStop) && (mc.sampleLoopStart))
-    //			{
-    //				mc.samplePosition = mc.sampleRepeatStart;
-    //				mc.samplePositionReal = mc.samplePosition << REAL_PART_SHIFT;
-    //			}					
-    //		}
     //		function nEffect_0B(mc:cMixerChannel):void
     //		{
     //			mc.patternJumpCounter = 0;
@@ -607,17 +586,6 @@ namespace ModuleSystem
     //			mixInfo.currentRow = 0;
     //			mixInfo.track = mc.patternNumToJump;
     //			mixInfo.pattern = mc.patternToJump;
-    //		}
-    //		function nEffect_0D(mc:cMixerChannel):void
-    //		{
-    //			mc.patternJumpCounter = 0;
-    //			mc.patternToJump = module.patternsList.pattern[module.arrangement[mixInfo.track + 1]];
-    //			mc.positionToJump = mc.effectArgX * 10 + mc.effectArgY;
-    //			if (mc.positionToJump > 0x3F) mc.positionToJump = 0;
-
-    //			mixInfo.currentRow = mc.positionToJump;
-    //			mixInfo.track++;
-    //			mixInfo.pattern = mc.patternToJump;	
     //		}
 
     //		//tick update
@@ -744,7 +712,7 @@ namespace ModuleSystem
         {
             if (instrumentData == null || length == 0)
             {
-                repeatStop = repeatStart = 0;
+                repeatStop = repeatStart = 2;
                 repeatLength = (int)(repeatStop - repeatStart);
                 loopType = 0;
                 return;
@@ -756,7 +724,7 @@ namespace ModuleSystem
             }
             if (repeatStart + 2 > repeatStop)
             {
-                repeatStop = repeatStart = 0;
+                repeatStop = repeatStart = 2;
                 repeatLength = (int)(repeatStop - repeatStart);
                 loopType = 0;
             }
