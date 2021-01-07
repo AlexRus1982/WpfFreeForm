@@ -49,6 +49,7 @@ namespace WpfFreeFormModulePlayer
             if (openFileDialog.ShowDialog() == true)
             {
                 filePath = openFileDialog.FileName;
+                //mPlayer = new ModulePlayer();
                 mPlayer.OpenFromFile(filePath);
             }
         }

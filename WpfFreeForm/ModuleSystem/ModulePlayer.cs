@@ -7,8 +7,37 @@ using System.Threading.Tasks;
 
 namespace ModuleSystem
 {
+    //-------------------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------------------------------
     public static class ModuleConst
     {
+        public const string VERSION = "V1.0";
+        public const string PROGRAM = "Sound module engine";
+        public const string COPYRIGHT = "Copyright by Alex 2020";
+        public const string FULLVERSION = PROGRAM + " " + VERSION + " " + COPYRIGHT;
+
+        public const int SOUNDFREQUENCY = 22050;
+        public const int SOUNDBITS = 16;
+        public const int MONO = 0x01;
+        public const int STEREO = 0x02;
+        public const int LOOP_OFF = 0x00;
+        public const int LOOP_ON = 0x01;
+        public const int LOOP_SUSTAIN_ON = 0x02;
+        public const int LOOP_IS_PINGPONG = 0x04;
+        public const int LOOP_SUSTAIN_IS_PINGPONG = 0x08;
+
+        public const int NORM_MAX_PERIOD = 907;
+        public const int NORM_MIN_PERIOD = 108;
+        public const int EXT_MAX_PERIOD = 1814;
+        public const int EXT_MIN_PERIOD = 54;
+        public const int MAX_PERIOD = EXT_MAX_PERIOD;
+        public const int MIN_PERIOD = EXT_MIN_PERIOD;
+        public const int BASEFREQUENCY = 8363;
+        public const int BASEPERIOD = 428;
+        public const int MAXVOLUME = 64;
+        public const int SM_16BIT = 0x04;   // 16 BIT
+        public const int SM_STEREO = 0x08;  // STEREO
 
         public static string[] noteStrings =
         {
@@ -67,20 +96,6 @@ namespace ModuleSystem
              24,  23,  22,  20,  19,  17,  16,  14,  12,  11,   9,   8,   6,   5,   3,   2
         };
 
-        public const int NORM_MAX_PERIOD = 907;
-        public const int NORM_MIN_PERIOD = 108;
-        public const int EXT_MAX_PERIOD = 1814;
-        public const int EXT_MIN_PERIOD = 54;
-        public const int MAX_PERIOD = EXT_MAX_PERIOD;
-        public const int MIN_PERIOD = EXT_MIN_PERIOD;
-        public const int BASEFREQUENCY = 8363;
-        public const int BASEPERIOD = 428;
-        public const int MAXVOLUME = 64;
-        public const int SM_16BIT = 0x04;   // 16 BIT
-        public const int SM_STEREO = 0x08;  // STEREO
-        public const int LOOP_OFF = 0x00;
-        public const int LOOP_ON = 0x01;
-
         public static string getNoteNameToIndex(int index)
         {
             if (index < -1) return "---";
@@ -120,25 +135,13 @@ namespace ModuleSystem
             int frequency = (int)(8363 * Math.Pow(2, ((4608 - period) * 0.001302083)));
             return frequency;
         }
-
     }
 
+    //-------------------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------------------------------
     public static class ModuleUtils
     {
-        public static string VERSION = "V1.0";
-        public static string PROGRAM = "Sound module engine";
-        public static string COPYRIGHT = "Copyright by Alex 2020";
-        public static string FULLVERSION = PROGRAM + " " + VERSION + " " + COPYRIGHT;
-
-        public const int SOUNDFREQUENCY = 22050;
-        public const int SOUNDBITS = 16;
-        public const int MONO = 0x01;
-        public const int STEREO = 0x02;
-        public const int LOOP_ON = 0x01;
-        public const int LOOP_SUSTAIN_ON = 0x02;
-        public const int LOOP_IS_PINGPONG = 0x04;
-        public const int LOOP_SUSTAIN_IS_PINGPONG = 0x08;
-
         public static string getAsHex(int value, int digits)
         {
             string hex = value.ToString("X" + digits.ToString());
@@ -180,6 +183,9 @@ namespace ModuleSystem
         }
     }
 
+    //-------------------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------------------------------
     public class ModuleMixerChannel
     {
         public bool muted = false;
@@ -257,6 +263,9 @@ namespace ModuleSystem
         public float channelVolume = 1.0f;
     }
 
+    //-------------------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------------------------------
     public class ModuleMixer
     {
         protected int mixFreq = 22050;
@@ -266,9 +275,15 @@ namespace ModuleSystem
 
         protected SoundModule module = null;
         protected List<ModuleMixerChannel> mixChannels = new List<ModuleMixerChannel>();
+        
         protected List<Func<ModuleMixerChannel, bool>> noteEffects = new List<Func<ModuleMixerChannel, bool>>();
+        protected List<bool> noteEffectsUsed = new List<bool>();
+        
         protected List<Func<ModuleMixerChannel, bool>> tickEffects = new List<Func<ModuleMixerChannel, bool>>();
+        protected List<bool> tickEffectsUsed = new List<bool>();
+        
         protected List<Func<ModuleMixerChannel, bool>> effectsE = new List<Func<ModuleMixerChannel, bool>>();
+        protected List<bool> effectsEUsed = new List<bool>();
 
         protected bool played = false;
         protected bool moduleEnd = false;
@@ -293,6 +308,12 @@ namespace ModuleSystem
         public ModuleMixer(SoundModule module)
         {
             this.module = module;
+            for (int i = 0; i < 16; i++)
+            {
+                noteEffectsUsed.Add(false);
+                tickEffectsUsed.Add(false);
+                effectsEUsed.Add(false);
+            }
         }
 
         public int calcSamplesPerTick(int currentBPM)
@@ -309,7 +330,7 @@ namespace ModuleSystem
 
         public virtual void resetChannelInstrument(ModuleMixerChannel mc)
         {
-            //mc.instrumentPosition = 2;
+            mc.instrumentPosition = 2;
             mc.instrumentLength = mc.instrument.length;
             mc.loopType = mc.instrument.loopType;
             mc.instrumentLoopStart = false;
@@ -339,35 +360,53 @@ namespace ModuleSystem
 
                 mc.lastPeriod = mc.period;
 
-                if (pe.instrument > 0)
+                if ((pe.instrument > 0) && (pe.period == 0))
+                {
+                    mc.instrument = module.instruments[pe.instrument - 1];
+                    if (mc.instrument != mc.lastInstrument)
+                    {
+                        resetChannelInstrument(mc);
+                        mc.lastInstrument = mc.instrument;
+                    }
+                    else
+                    {
+                        mc.channelVolume = mc.instrument.volume;
+                    }
+                }
+
+                if ((pe.instrument > 0) && (pe.period > 0))
                 {
                     mc.lastInstrument = mc.instrument;
                     mc.lastFineTune = mc.currentFineTune;
                     mc.instrument = module.instruments[pe.instrument - 1];
                     mc.currentFineTune = mc.instrument.fineTune;
-                    resetChannelInstrument(mc);
-                    if (pe.effekt != 0x03)
-                        mc.instrumentPosition = 2;
+                    if (mc.instrument != null)
+                    {
+                        resetChannelInstrument(mc);
+                        mc.lastInstrument = mc.instrument;
+                    }
                 }
 
                 if (pe.period > 0)
                 {
-                    mc.isNote = true;
-                    mc.lastNoteIndex = mc.noteIndex;
-                    if (pe.effekt != 0x03)
-                    {
-                        mc.noteIndex = pe.noteIndex;
-                        mc.instrumentPosition = 2;
-                        mc.period = ModuleConst.getNotePeriod(mc.noteIndex - 1, mc.currentFineTune);
-                        mc.periodInc = calcPeriodIncrement(mc.period);
-                    }
-                    else
-                        mc.slideToPeriod = ModuleConst.getNotePeriod(pe.noteIndex - 1, mc.currentFineTune);
-                }
-                else
-                {
                     mc.isNote = false;
+                    mc.lastNoteIndex = mc.noteIndex;
+                    mc.noteIndex = pe.noteIndex;
+                    mc.lastPeriod = mc.period;
+                    if (mc.instrument != null) mc.period = ModuleConst.getNotePeriod(mc.noteIndex - 1, mc.currentFineTune);
+                    else mc.period = 0;
+                    mc.periodInc = calcPeriodIncrement(mc.period);
+                    if (mc.instrument != null)
+                    {
+                        mc.instrumentPosition = 2;
+                        mc.instrumentLength = mc.instrument.length;
+                        mc.loopType = mc.instrument.loopType;
+                        mc.instrumentLoopStart = false;
+                        mc.instrumentRepeatStart = mc.instrument.repeatStart;
+                        mc.instrumentRepeatStop = mc.instrument.repeatStop;
+                    }
                 }
+                else mc.isNote = true;
             }
 
             currentRow++;
@@ -392,13 +431,19 @@ namespace ModuleSystem
         public virtual void updateNoteEffects()
         {
             for (int ch = 0; ch < module.nChannels; ch++)
+            {
                 noteEffects[mixChannels[ch].effect](mixChannels[ch]);
+                noteEffectsUsed[mixChannels[ch].effect] = true;
+            }
         }
 
         public virtual void updateTickEffects()
         {
             for (int ch = 0; ch < module.nChannels; ch++)
+            {
                 tickEffects[mixChannels[ch].effect](mixChannels[ch]);
+                tickEffectsUsed[mixChannels[ch].effect] = true;
+            }
         }
 
         public virtual void setBPM()
@@ -442,12 +487,27 @@ namespace ModuleSystem
             System.Diagnostics.Debug.WriteLine("Start mixing -> ...");
 
             mixingBuffer.BaseStream.SetLength(0);
+            mixingBuffer.BaseStream.Seek(0, SeekOrigin.Begin);
 
             moduleEnd = false;
             while (!moduleEnd)
             {
                 mixData();
             }
+
+            string usedNoteEffects  = "noteEffects : ";
+            string usedTickEffects  = "tickEffects : ";
+            string usedEEffects     = "   EEffects : ";
+
+            for (int i = 0; i < 16; i++)
+            {
+                usedNoteEffects += (noteEffectsUsed[i]) ? ModuleUtils.getAsHex(i, 2) + " " : "";
+                usedTickEffects += (tickEffectsUsed[i]) ? ModuleUtils.getAsHex(i, 2) + " " : "";
+                usedEEffects    += (effectsEUsed[i])    ? ModuleUtils.getAsHex(i, 2) + " " : "";
+            }
+            System.Diagnostics.Debug.WriteLine(usedNoteEffects);
+            System.Diagnostics.Debug.WriteLine(usedTickEffects);
+            System.Diagnostics.Debug.WriteLine(usedEEffects);
 
             startTime.Stop();
             var resultTime = startTime.Elapsed;
@@ -575,19 +635,6 @@ namespace ModuleSystem
     //  			return int(((b3 * posReal * 0.1666666 + b2 * 0.5) * posReal + b1 * 0.5) * posReal + b0 * 0.1666666);
     //		}
 
-    //		//note update
-    //		function nEffect_0B(mc:cMixerChannel):void
-    //		{
-    //			mc.patternJumpCounter = 0;
-    //			mc.patternNumToJump = mc.effectArgX * 16 + mc.effectArgY;
-    //			if (mc.patternNumToJump > 0x7F) mc.patternNumToJump = 0;
-    //			mc.patternToJump = module.patternsList.pattern[module.arrangement[mc.patternNumToJump]];
-
-    //			mixInfo.currentRow = 0;
-    //			mixInfo.track = mc.patternNumToJump;
-    //			mixInfo.pattern = mc.patternToJump;
-    //		}
-
     //		//tick update
     //		function tEffect_05(mc:cMixerChannel):void
     //		{
@@ -599,36 +646,6 @@ namespace ModuleSystem
     //			tEffect_0A(mc);
     //			tEffect_04(mc);
     //		}
-    //		function tEffect_07(mc:cMixerChannel):void
-    //		{
-    //			if (mc.tremoloType % 4 == 0) mc.tremoloAdd = cMODConst.ModSinusTable	[mc.tremoloCount];
-    //			if (mc.tremoloType % 4 == 1) mc.tremoloAdd = cMODConst.ModRampDownTable	[mc.tremoloCount];
-    //			if (mc.tremoloType % 4 == 2) mc.tremoloAdd = cMODConst.ModSquareTable	[mc.tremoloCount];
-    //			if (mc.tremoloType % 4 == 3) mc.tremoloAdd = cMODConst.ModRandomTable	[mc.tremoloCount];
-    //			mc.channelVolume = mc.tremoloStart + int((mc.tremoloAdd / 128) * (mc.tremoloAmp / 0x40));
-    //			mc.channelVolume = (mc.channelVolume < 0.0) ? 0.0 : mc.channelVolume;
-    //			mc.channelVolume = (mc.channelVolume > 1.0) ? 1.0 : mc.channelVolume;
-    //			mc.tremoloCount = (mc.tremoloCount + mc.tremoloFreq) & 0x3F;
-
-    //		}
-    //		function tEffect_08(mc:cMixerChannel):void{}
-    //		function tEffect_09(mc:cMixerChannel):void{}
-    //		function tEffect_0A(mc:cMixerChannel):void
-    //		{
-    //			if (mc.volumeSlideStart)
-    //			{
-    //				mc.channelVolume += mc.volumeSlideX;
-    //				mc.channelVolume -= mc.volumeSlideY;
-    //				mc.channelVolume = (mc.channelVolume < 0.0) ? 0.0 : mc.channelVolume;
-    //				mc.channelVolume = (mc.channelVolume > 1.0) ? 1.0 : mc.channelVolume;
-    //			}
-    //			else mc.volumeSlideStart = true;
-    //		}
-    //		function tEffect_0B(mc:cMixerChannel):void{}
-    //		function tEffect_0C(mc:cMixerChannel):void{}
-    //		function tEffect_0D(mc:cMixerChannel):void{}
-    //		function tEffect_0E(mc:cMixerChannel):void{}
-    //		function tEffect_0F(mc:cMixerChannel):void{}
 
     //		//E effects
     //		function effect_E0(mc:cMixerChannel):void{}		

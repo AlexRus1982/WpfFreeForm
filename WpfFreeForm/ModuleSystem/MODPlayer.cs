@@ -100,7 +100,6 @@ namespace ModuleSystem
 
 		private bool noteEffect3(ModuleMixerChannel mc)             // Slide to note
 		{
-			return false;
 			mc.portamentoStart = mc.period;
             mc.portamentoEnd = mc.slideToPeriod;
 
@@ -119,7 +118,6 @@ namespace ModuleSystem
 
 		private bool noteEffect4(ModuleMixerChannel mc)             // Vibrato
 		{
-			return false;
 			mc.vibratoCount = (mc.isNote) ? 0 : mc.vibratoCount;
             mc.vibratoStart = mc.period;
             if (mc.effectArgX != 0 && mc.effectArgY != 0)
@@ -139,7 +137,6 @@ namespace ModuleSystem
 
 		private bool noteEffect5(ModuleMixerChannel mc)             // Continue Slide to note + Volume slide
 		{
-			return false;
             noteEffectA(mc);
             if (!mc.isNote)
             {
@@ -199,6 +196,12 @@ namespace ModuleSystem
 
 		private bool noteEffectB(ModuleMixerChannel mc)             // Position Jump
 		{
+            mc.patternNumToJump = mc.effectArgX * 16 + mc.effectArgY;
+            if (mc.patternNumToJump > 0x7F) mc.patternNumToJump = 0;
+
+            currentRow = 0;
+            track = module.arrangement[mc.patternNumToJump];
+            pattern = module.patterns[module.arrangement[track]];
 			return true;
 		}
 
@@ -211,7 +214,6 @@ namespace ModuleSystem
 
 		private bool noteEffectD(ModuleMixerChannel mc)             // Pattern Break
 		{
-            mc.patternJumpCounter = 0;
             mc.positionToJump = mc.effectArgX * 10 + mc.effectArgY;
             if (mc.positionToJump > 0x3F) mc.positionToJump = 0;
 
@@ -225,6 +227,7 @@ namespace ModuleSystem
 		private bool noteEffectE(ModuleMixerChannel mc)             // Extended Effects
 		{
 			effectsE[mc.effectArgX](mc);
+			effectsEUsed[mc.effectArgX] = true;
 			return true;
 		}
 
@@ -273,7 +276,6 @@ namespace ModuleSystem
 
 		private bool tickEffect3(ModuleMixerChannel mc)
 		{
-			return false;
 			if ((mc.portamentoStart <= 113) || (mc.portamentoStart >= 856)) mc.portamentoStep = 0;
 			mc.portamentoStart = (mc.portamentoStart <= 113) ? 113 : mc.portamentoStart;
 			mc.portamentoStart = (mc.portamentoStart >= 856) ? 856 : mc.portamentoStart;
@@ -290,11 +292,10 @@ namespace ModuleSystem
 
 		private bool tickEffect4(ModuleMixerChannel mc)
 		{
-			return false;
-			mc.vibratoAdd = (mc.vibratoType % 4 == 0) ? ModuleConst.ModSinusTable[mc.vibratoCount]		: mc.vibratoAdd;
-			mc.vibratoAdd = (mc.vibratoType % 4 == 1) ? ModuleConst.ModRampDownTable[mc.vibratoCount]	: mc.vibratoAdd;
-			mc.vibratoAdd = (mc.vibratoType % 4 == 2) ? ModuleConst.ModSquareTable[mc.vibratoCount]		: mc.vibratoAdd;
-			mc.vibratoAdd = (mc.vibratoType % 4 == 3) ? ModuleConst.ModRandomTable[mc.vibratoCount]		: mc.vibratoAdd;
+			mc.vibratoAdd = (mc.vibratoType % 4 == 0) ? ModuleConst.ModSinusTable	[mc.vibratoCount] : mc.vibratoAdd;
+			mc.vibratoAdd = (mc.vibratoType % 4 == 1) ? ModuleConst.ModRampDownTable[mc.vibratoCount] : mc.vibratoAdd;
+			mc.vibratoAdd = (mc.vibratoType % 4 == 2) ? ModuleConst.ModSquareTable	[mc.vibratoCount] : mc.vibratoAdd;
+			mc.vibratoAdd = (mc.vibratoType % 4 == 3) ? ModuleConst.ModRandomTable	[mc.vibratoCount] : mc.vibratoAdd;
 
             var period = mc.vibratoStart + (int)(mc.vibratoAdd * mc.vibratoAmp / 128);
 			period = (period <= 113) ? 113 : period;
@@ -316,7 +317,16 @@ namespace ModuleSystem
 
 		private bool tickEffect7(ModuleMixerChannel mc)
 		{
-			return true;
+			mc.tremoloType = (mc.tremoloType % 4 == 0) ? ModuleConst.ModSinusTable	 [mc.tremoloCount] : mc.tremoloType;
+			mc.tremoloType = (mc.tremoloType % 4 == 1) ? ModuleConst.ModRampDownTable[mc.tremoloCount] : mc.tremoloType;
+			mc.tremoloType = (mc.tremoloType % 4 == 2) ? ModuleConst.ModSquareTable	 [mc.tremoloCount] : mc.tremoloType;
+			mc.tremoloType = (mc.tremoloType % 4 == 3) ? ModuleConst.ModRandomTable	 [mc.tremoloCount] : mc.tremoloType;
+
+            mc.channelVolume = mc.tremoloStart + (int)((mc.tremoloAdd / 128) * (mc.tremoloAmp / 0x40));
+            mc.channelVolume = (mc.channelVolume < 0.0f) ? 0.0f : mc.channelVolume;
+            mc.channelVolume = (mc.channelVolume > 1.0f) ? 1.0f : mc.channelVolume;
+            mc.tremoloCount = (mc.tremoloCount + mc.tremoloFreq) & 0x3F;
+            return true;
 		}
 
 		private bool tickEffect8(ModuleMixerChannel mc)
@@ -451,26 +461,56 @@ namespace ModuleSystem
 		//----------------------------------------------------------------------------------------------
 		public MODMixer(SoundModule module) : base(module)
         {
-			noteEffects.Add(noteEffect0); noteEffects.Add(noteEffect1); noteEffects.Add(noteEffect2);
-			noteEffects.Add(noteEffect3); noteEffects.Add(noteEffect4); noteEffects.Add(noteEffect5);
-			noteEffects.Add(noteEffect6); noteEffects.Add(noteEffect7); noteEffects.Add(noteEffect8);
-			noteEffects.Add(noteEffect9); noteEffects.Add(noteEffectA); noteEffects.Add(noteEffectB);
-			noteEffects.Add(noteEffectC); noteEffects.Add(noteEffectD); noteEffects.Add(noteEffectE);
-			noteEffects.Add(noteEffectF);
+			noteEffects.Add(/*noteEffect0*/noEffect);   // 0. ARPEGGIO
+			noteEffects.Add(/*noteEffect1*/noEffect);   // 1. PORTAMENTO UP 
+			noteEffects.Add(/*noteEffect2*/noEffect);   // 2. PORTAMENTO DOWN
+			noteEffects.Add(/*noteEffect3*/noEffect);   // 3. TONE PORTAMENTO
+			noteEffects.Add(/*noteEffect4*/noEffect);   // 4. VIBRATO
+			noteEffects.Add(/*noteEffect5*/noEffect);   // 5. TONE PORTAMENTO + VOLUME SLIDE
+			noteEffects.Add(/*noteEffect6*/noEffect);   // 6. VIBRATO + VOLUME SLIDE
+			noteEffects.Add(/*noteEffect7*/noEffect);   // 7. TREMOLO
+			noteEffects.Add(/*noteEffect8*/noEffect);   // 8. PAN
+			noteEffects.Add(/*noteEffect9*/noEffect);   // 9. SAMPLE OFFSET
+			noteEffects.Add(/*noteEffectA*/noEffect);   // A. VOLUME SLIDE
+			noteEffects.Add(/*noteEffectB*/noEffect);   // B. POSITION JUMP
+			noteEffects.Add(noteEffectC);				// C. SET VOLUME
+			noteEffects.Add(noteEffectD);				// D. PATTERN BREAK
+			noteEffects.Add(/*noteEffectE*/noEffect);   // E. EXTEND EFFECTS
+			noteEffects.Add(noteEffectF);				// F. SET SPEED
 
-			tickEffects.Add(tickEffect0); tickEffects.Add(tickEffect1); tickEffects.Add(tickEffect2);
-			tickEffects.Add(tickEffect3); tickEffects.Add(tickEffect4); tickEffects.Add(tickEffect5);
-			tickEffects.Add(tickEffect6); tickEffects.Add(tickEffect7); tickEffects.Add(tickEffect8);
-			tickEffects.Add(tickEffect9); tickEffects.Add(tickEffectA); tickEffects.Add(tickEffectB);
-			tickEffects.Add(tickEffectC); tickEffects.Add(tickEffectD); tickEffects.Add(tickEffectE);
-			tickEffects.Add(tickEffectF);
+			tickEffects.Add(/*tickEffect0*/noEffect);   // tick effect 0. ARPEGGIO
+			tickEffects.Add(/*tickEffect1*/noEffect);	// tick effect 1. PORTAMENTO UP 
+			tickEffects.Add(/*tickEffect2*/noEffect);	// tick effect 2. PORTAMENTO DOWN
+			tickEffects.Add(/*tickEffect3*/noEffect);	// tick effect 3. TONE PORTAMENTO
+			tickEffects.Add(/*tickEffect4*/noEffect);	// tick effect 4. VIBRATO
+			tickEffects.Add(/*tickEffect5*/noEffect);	// tick effect 5. TONE PORTAMENTO + VOLUME SLIDE
+			tickEffects.Add(/*tickEffect6*/noEffect);	// tick effect 6. VIBRATO + VOLUME SLIDE
+			tickEffects.Add(/*tickEffect7*/noEffect);	// tick effect 7. TREMOLO
+			tickEffects.Add(/*tickEffect8*/noEffect);	// tick effect 8. PAN
+			tickEffects.Add(/*tickEffect9*/noEffect);	// tick effect 9. SAMPLE OFFSET
+			tickEffects.Add(/*tickEffectA*/noEffect);	// tick effect A. VOLUME SLIDE
+			tickEffects.Add(/*tickEffectB*/noEffect);	// tick effect B. POSITION JUMP
+			tickEffects.Add(/*tickEffectC*/noEffect);	// tick effect C. SET VOLUME
+			tickEffects.Add(/*tickEffectD*/noEffect);	// tick effect D. PATTERN BREAK
+			tickEffects.Add(/*tickEffectE*/noEffect);	// tick effect E. EXTEND EFFECTS
+			tickEffects.Add(/*tickEffectF*/noEffect);	// tick effect F. SET SPEED
 
-			effectsE.Add(effectE0); effectsE.Add(effectE1); effectsE.Add(effectE2);
-			effectsE.Add(effectE3); effectsE.Add(effectE4); effectsE.Add(effectE5);
-			effectsE.Add(effectE6); effectsE.Add(effectE7); effectsE.Add(effectE8);
-			effectsE.Add(effectE9); effectsE.Add(effectEA); effectsE.Add(effectEB);
-			effectsE.Add(effectEC); effectsE.Add(effectED); effectsE.Add(effectEE);
-			effectsE.Add(effectEF);
+			effectsE.Add(/*effectE0*/noEffect);         // E0. SET FILTER
+			effectsE.Add(/*effectE1*/noEffect);         // E1. FINE PORTAMENTO UP
+			effectsE.Add(/*effectE2*/noEffect);         // E2. FINE PORTAMENTO DOWN
+			effectsE.Add(/*effectE3*/noEffect);         // E3. GLISSANDO CONTROL
+			effectsE.Add(/*effectE4*/noEffect);         // E4. VIBRATO WAVEFORM 
+			effectsE.Add(/*effectE5*/noEffect);         // E5. SET FINETUNE
+			effectsE.Add(/*effectE6*/noEffect);         // E6. PATTERN LOOP
+			effectsE.Add(/*effectE7*/noEffect);         // E7. TREMOLO WAVEFORM
+			effectsE.Add(/*effectE8*/noEffect);         // E8. 16 POSITION PAN
+			effectsE.Add(/*effectE9*/noEffect);         // E9. RETRIG NOTE
+			effectsE.Add(/*effectEA*/noEffect);         // EA. FINE VOLUME SLIDE UP
+			effectsE.Add(/*effectEB*/noEffect);         // EB. FINE VOLUME SLIDE DOWN
+			effectsE.Add(/*effectEC*/noEffect);         // EC. CUT NOTE
+			effectsE.Add(/*effectED*/noEffect);         // ED. NOTE DELAY
+			effectsE.Add(/*effectEE*/noEffect);         // EE. PATTERN DELAY
+			effectsE.Add(/*effectEF*/noEffect);         // EF. INVERT LOOP
 		}
 	}
 
@@ -480,8 +520,7 @@ namespace ModuleSystem
 
 		public MODSoundModule():base("MOD format")
 		{
-			DebugMes("MOD Sound Module created");
-			mixer = new MODMixer(this);
+			DebugMes("MOD Sound Module created");			
 		}
 
 		private long getAllInstrumentsLength()
@@ -634,7 +673,8 @@ namespace ModuleSystem
 			//mixer = new cMODMixer(this);
 			//mixer.mixInfo.BPM = BPMSpeed;
 			//mixer.mixInfo.speed = tempo;
-
+			
+			mixer = new MODMixer(this);
 			mixer.mixModule();
 			return true;
 		}
@@ -742,5 +782,11 @@ namespace ModuleSystem
 		{
 			mixer.Stop();
 		}
+
+		public override void Dispose()
+		{
+			mixer.Stop();
+		}
+
 	}
 }

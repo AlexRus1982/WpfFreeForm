@@ -5,6 +5,9 @@ using System.Threading.Tasks;
 
 namespace ModuleSystem
 {
+    //-------------------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------------------------------
     public partial class ModuleSoundSystem
     {
         private uint samplesPerSecond = 22050;
@@ -12,7 +15,7 @@ namespace ModuleSystem
 
         private SoundPlayer player = new SoundPlayer();
         private BinaryWriter writer = new BinaryWriter(new MemoryStream());
-        
+
         public ModuleSoundSystem()
         {
         }
@@ -42,13 +45,6 @@ namespace ModuleSystem
             writer.BaseStream.SetLength(0);
             WriteWavHeader(writer);
             writer.BaseStream.Seek(44, SeekOrigin.Begin);
-        }
-
-        private void DebugMes(string mes)
-        {
-            #if DEBUG
-            System.Diagnostics.Debug.WriteLine(mes);
-            #endif
         }
         
         private void WriteWavHeader(BinaryWriter writer)
@@ -94,6 +90,12 @@ namespace ModuleSystem
         public void Stop()
         {
             player.Stop();
+        }
+        private void DebugMes(string mes)
+        {
+            #if DEBUG
+            System.Diagnostics.Debug.WriteLine(mes);
+            #endif
         }
     }
 }
