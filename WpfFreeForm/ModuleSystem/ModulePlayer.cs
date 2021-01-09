@@ -27,6 +27,7 @@ namespace ModuleSystem
         public const int LOOP_IS_PINGPONG = 0x04;
         public const int LOOP_SUSTAIN_IS_PINGPONG = 0x08;
 
+        public const float AMIGA_FREQUENCY = 3579545.25f;
         public const int NORM_MAX_PERIOD = 907;
         public const int NORM_MIN_PERIOD = 108;
         public const int EXT_MAX_PERIOD = 1814;
@@ -126,7 +127,7 @@ namespace ModuleSystem
         {
             int period = 7680 - (note + 24) * 64 - finetune * 8;
             int frequency = (int)(8363 * Math.Pow(2, ((4608 - period) * 0.001302083)));
-            return (int)(3579545.25f / frequency);
+            return (int)(ModuleConst.AMIGA_FREQUENCY / frequency);
         }
 
         public static int getNoteFreq(int note, int finetune)
@@ -319,14 +320,12 @@ namespace ModuleSystem
 
         public int calcSamplesPerTick(int currentBPM)
 		{
-			if (currentBPM <= 0) return 0;
-			return (int)((mixFreq * 2.5) / currentBPM);
+			return (currentBPM <= 0) ? 0 : (int)(mixFreq * 2.5f / currentBPM);
 		}
 
 		public float calcPeriodIncrement(int period)
 		{			
-			if (period != 0) return ((float)(3546895 / period) / (float)mixFreq);
-			else return 1.0f;
+			return (period != 0) ? (float)(ModuleConst.AMIGA_FREQUENCY / (period * mixFreq)) : 1.0f;
 		}
 
         public virtual void resetChannelInstrument(ModuleMixerChannel mc)
