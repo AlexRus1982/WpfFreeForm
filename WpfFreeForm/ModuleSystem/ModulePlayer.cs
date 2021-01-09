@@ -224,6 +224,7 @@ namespace ModuleSystem
 
         public int vibratoType = 0;
         public int vibratoStart = 0;
+        public int vibratoPeriod = 0;
         public float vibratoAdd = 0;
         public int vibratoCount = 0;
         public int vibratoAmp = 0;
@@ -344,7 +345,7 @@ namespace ModuleSystem
         {
             patternDelay = 0;
             for (int ch = 0; ch < module.nChannels; ch++)
-			{
+            {
                 ModuleMixerChannel mc = mixChannels[ch];
                 ModulePatternChannel pe = pattern.patternRows[currentRow].patternChannels[ch];
 
@@ -358,55 +359,82 @@ namespace ModuleSystem
                 mc.effectArgX = (mc.effectArg & 0xF0) >> 4;
                 mc.effectArgY = (mc.effectArg & 0x0F);
 
-                mc.lastPeriod = mc.period;
+                //if ((pe.instrument > 0) && (pe.period == 0))
+                //{
+                //    mc.instrument = module.instruments[pe.instrument - 1];
+                //    if (mc.instrument != mc.lastInstrument)
+                //    {
+                //        resetChannelInstrument(mc);
+                //        mc.lastInstrument = mc.instrument;
+                //    }
+                //    else
+                //    {
+                //        mc.channelVolume = mc.instrument.volume;
+                //    }
+                //}
 
-                if ((pe.instrument > 0) && (pe.period == 0))
+                if (pe.period > 0)
                 {
-                    mc.instrument = module.instruments[pe.instrument - 1];
-                    if (mc.instrument != mc.lastInstrument)
+                    mc.isNote = true;
+                    mc.lastNoteIndex = mc.noteIndex;
+                    mc.noteIndex = pe.noteIndex;
+                    mc.lastPeriod = mc.period;
+                    if (pe.effekt != 0x03 && pe.effekt != 0x05)
                     {
-                        resetChannelInstrument(mc);
-                        mc.lastInstrument = mc.instrument;
+                        mc.period = ModuleConst.getNotePeriod(mc.noteIndex - 1, mc.currentFineTune);
+                        mc.periodInc = calcPeriodIncrement(mc.period);
                     }
                     else
                     {
-                        mc.channelVolume = mc.instrument.volume;
+                        mc.portamentoStart = mc.period;
+                        mc.portamentoEnd = ModuleConst.getNotePeriod(mc.noteIndex - 1, mc.currentFineTune);
                     }
                 }
+                else mc.isNote = false;
+
+                if (pe.instrument > 0)
+                {
+                    mc.channelVolume = mc.instrument.volume;
+                    //if (mc.instrument == module.instruments[pe.instrument - 1])
+                    //{
+                    //    //mc.instrumentPosition = 2;
+                    //    //mc.instrumentLength = mc.instrument.length;
+                    //    //mc.loopType = mc.instrument.loopType;
+                    //    //mc.instrumentLoopStart = false;
+                    //    //mc.instrumentRepeatStart = mc.instrument.repeatStart;
+                    //    //mc.instrumentRepeatStop = mc.instrument.repeatStop;
+                    //    mc.channelVolume = mc.instrument.volume;
+                    //    //mc.currentFineTune = mc.instrument.fineTune;
+                    //}
+                }
+
 
                 if ((pe.instrument > 0) && (pe.period > 0))
                 {
                     mc.lastInstrument = mc.instrument;
                     mc.lastFineTune = mc.currentFineTune;
                     mc.instrument = module.instruments[pe.instrument - 1];
+                    mc.instrumentPosition = 2;
+                    mc.instrumentLength = mc.instrument.length;
+                    mc.loopType = mc.instrument.loopType;
+                    mc.instrumentLoopStart = false;
+                    mc.instrumentRepeatStart = mc.instrument.repeatStart;
+                    mc.instrumentRepeatStop = mc.instrument.repeatStop;
+                    mc.channelVolume = mc.instrument.volume;
                     mc.currentFineTune = mc.instrument.fineTune;
-                    if (mc.instrument != null)
-                    {
-                        resetChannelInstrument(mc);
-                        mc.lastInstrument = mc.instrument;
-                    }
                 }
 
-                if (pe.period > 0)
+                if ((pe.instrument == 0) && (pe.period > 0))
                 {
-                    mc.isNote = false;
-                    mc.lastNoteIndex = mc.noteIndex;
-                    mc.noteIndex = pe.noteIndex;
-                    mc.lastPeriod = mc.period;
-                    if (mc.instrument != null) mc.period = ModuleConst.getNotePeriod(mc.noteIndex - 1, mc.currentFineTune);
-                    else mc.period = 0;
-                    mc.periodInc = calcPeriodIncrement(mc.period);
-                    if (mc.instrument != null)
-                    {
-                        mc.instrumentPosition = 2;
-                        mc.instrumentLength = mc.instrument.length;
-                        mc.loopType = mc.instrument.loopType;
-                        mc.instrumentLoopStart = false;
-                        mc.instrumentRepeatStart = mc.instrument.repeatStart;
-                        mc.instrumentRepeatStop = mc.instrument.repeatStop;
-                    }
+                    mc.instrumentPosition = 2;
+                    mc.instrumentLength = mc.instrument.length;
+                    mc.loopType = mc.instrument.loopType;
+                    mc.instrumentLoopStart = false;
+                    mc.instrumentRepeatStart = mc.instrument.repeatStart;
+                    mc.instrumentRepeatStop = mc.instrument.repeatStop;
+                    //mc.channelVolume = mc.instrument.volume;
+                    //mc.currentFineTune = mc.instrument.fineTune;
                 }
-                else mc.isNote = true;
             }
 
             currentRow++;
@@ -550,7 +578,7 @@ namespace ModuleSystem
 				for (int ch = 0; ch < module.nChannels; ch++)
 				{
                     ModuleMixerChannel mc = mixChannels[ch];
-                    //if (ch != 1) mc.muted = true;
+                    //if (ch != 2) mc.muted = true;
 					if (!mc.muted)
 					{
 						if ((mc.instrumentPosition >= mc.instrumentLength) && (!mc.instrumentLoopStart) && (mc.loopType == ModuleConst.LOOP_ON))
@@ -581,7 +609,11 @@ namespace ModuleSystem
                 //	event.data.writeFloat(0.0);					
                 //}
 
-                mixingBuffer.Write((short)(32767 * mixValue / module.nChannels));
+                mixValue /= module.nChannels;
+                mixValue = (mixValue < -1.0f) ? -1.0f : mixValue;
+                mixValue = (mixValue >  1.0f) ?  1.0f : mixValue;
+
+                mixingBuffer.Write((short)(32767 * mixValue));
 
                 mixerPosition++;
 				if (mixerPosition >= samplesPerTick)
@@ -640,11 +672,6 @@ namespace ModuleSystem
     //		{
     //			tEffect_0A(mc);
     //			tEffect_03(mc);
-    //		}
-    //		function tEffect_06(mc:cMixerChannel):void
-    //		{
-    //			tEffect_0A(mc);
-    //			tEffect_04(mc);
     //		}
 
     //		//E effects
@@ -709,6 +736,7 @@ namespace ModuleSystem
     public class ModuleInstrument
     {
         public string name = "";    // Name of the sample
+        public int number = 0;    // Number of the sample
         public int length = 0;  // full length (already *2 --> Mod-Fomat)
         public int fineTune = 0;    // Finetuning -8..+8
         public float volume = 0;    // Basisvolume
@@ -752,6 +780,7 @@ namespace ModuleSystem
             //if (length == 0) return this.name;
             string res = this.name;
             res += "(len:" + length + ","
+                    + "number:" + number + ","
                     + "fTune:" + fineTune + ","
                     //+ "transpose:"  + transpose + ","
                     + "baseFreq:" + baseFrequency + ","
