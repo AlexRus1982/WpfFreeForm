@@ -28,10 +28,10 @@ namespace ModuleSystem
         public const int LOOP_SUSTAIN_IS_PINGPONG = 0x08;
 
         public const float AMIGA_FREQUENCY = 3579545.25f;
-        public const int NORM_MAX_PERIOD = 907;
-        public const int NORM_MIN_PERIOD = 108;
-        public const int EXT_MAX_PERIOD = 1814;
-        public const int EXT_MIN_PERIOD = 54;
+        public const int NORM_MAX_PERIOD = 856;
+        public const int NORM_MIN_PERIOD = 113;
+        public const int EXT_MAX_PERIOD = 1712;
+        public const int EXT_MIN_PERIOD = 56;
         public const int MAX_PERIOD = EXT_MAX_PERIOD;
         public const int MIN_PERIOD = EXT_MIN_PERIOD;
         public const int BASEFREQUENCY = 8363;
@@ -378,16 +378,21 @@ namespace ModuleSystem
                     mc.lastNoteIndex = mc.noteIndex;
                     mc.noteIndex = pe.noteIndex;
                     mc.lastPeriod = mc.period;
-                    if (pe.effekt != 0x03 && pe.effekt != 0x05)
-                    {
-                        mc.period = ModuleConst.getNotePeriod(mc.noteIndex - 1, mc.currentFineTune);
-                        mc.periodInc = calcPeriodIncrement(mc.period);
-                    }
-                    else
-                    {
-                        mc.portamentoStart = mc.period;
-                        mc.portamentoEnd = ModuleConst.getNotePeriod(mc.noteIndex - 1, mc.currentFineTune);
-                    }
+                    mc.portamentoStart = mc.period;
+                    mc.portamentoEnd = ModuleConst.getNotePeriod(mc.noteIndex - 1, mc.currentFineTune);
+                    mc.period = ModuleConst.getNotePeriod(mc.noteIndex - 1, mc.currentFineTune);
+                    mc.periodInc = calcPeriodIncrement(mc.period);
+
+                    //if (pe.effekt != 0x03 && pe.effekt != 0x05)
+                    //{
+                    //    mc.period = ModuleConst.getNotePeriod(mc.noteIndex - 1, mc.currentFineTune);
+                    //    mc.periodInc = calcPeriodIncrement(mc.period);
+                    //}
+                    //else
+                    //{
+                    //    mc.portamentoStart = mc.period;
+                    //    mc.portamentoEnd = ModuleConst.getNotePeriod(mc.noteIndex - 1, mc.currentFineTune);
+                    //}
                 }
                 else mc.isNote = false;
 
@@ -406,7 +411,6 @@ namespace ModuleSystem
                     //    //mc.currentFineTune = mc.instrument.fineTune;
                     //}
                 }
-
 
                 if ((pe.instrument > 0) && (pe.period > 0))
                 {
@@ -481,11 +485,12 @@ namespace ModuleSystem
 
         public virtual void updateBPM()
 		{
-			if (counter >= speed + patternDelay * speed)
-			{
+            if (counter >= ((1 + patternDelay) * speed))
+            {
 				counter = 0;
 				updateNote();
 				updateNoteEffects();
+                updateTickEffects();
 			}
 			else updateTickEffects();
 			counter++;
@@ -551,6 +556,7 @@ namespace ModuleSystem
             System.Diagnostics.Debug.WriteLine("Mixing data music length = " + t.ToString());
 
             BinaryWriter soundBuffer = soundSystem.getBuffer;
+            //soundSystem.SetSampleRate((int)(22050 * 1.25f));
             soundSystem.SetBufferLen((uint)mixingBuffer.BaseStream.Length / 2);
             mixingBuffer.BaseStream.Seek(0, SeekOrigin.Begin);
             mixingBuffer.BaseStream.CopyTo(soundBuffer.BaseStream);
@@ -945,7 +951,7 @@ namespace ModuleSystem
         public int BPMSpeed = 0;
         public int tempo = 0;
         public int songLength = 0;
-        public int baseVolume = 0;
+        public float baseVolume = 0.0f;
         public bool isAmigaLike = true;
         public List<ModuleInstrument> instruments = new List<ModuleInstrument>();
         public List<ModulePattern> patterns = new List<ModulePattern>();

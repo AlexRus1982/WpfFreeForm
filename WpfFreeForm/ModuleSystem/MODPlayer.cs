@@ -236,7 +236,7 @@ namespace ModuleSystem
                 BPM = mc.effectArg;
                 setBPM();
             }
-            else if ((mc.effectArg > 0) && (mc.effectArg <= 0x1F))
+            if ((mc.effectArg > 0) && (mc.effectArg <= 0x1F))
                 speed = mc.effectArg;
 
             return true;
@@ -259,7 +259,7 @@ namespace ModuleSystem
 		private bool tickEffect1(ModuleMixerChannel mc)
 		{
             mc.period += mc.portamentoStep;
-			mc.period = (mc.period < 113) ? 113 : mc.period;
+			mc.period = (mc.period < ModuleConst.MIN_PERIOD) ? ModuleConst.MIN_PERIOD : mc.period;
             mc.periodInc = calcPeriodIncrement(mc.period);
             return true;
 		}
@@ -267,30 +267,29 @@ namespace ModuleSystem
 		private bool tickEffect2(ModuleMixerChannel mc)
 		{
             mc.period += mc.portamentoStep;
-			mc.period = (mc.period > 856) ? 856 : mc.period;
+			mc.period = (mc.period > ModuleConst.MAX_PERIOD) ? ModuleConst.MAX_PERIOD : mc.period;
             mc.periodInc = calcPeriodIncrement(mc.period);
             return true;
 		}
 
 		private bool tickEffect3(ModuleMixerChannel mc)
 		{
-			if ((mc.portamentoStart <= 113) || (mc.portamentoStart >= 856)) mc.portamentoStep = 0;
-			mc.portamentoStart = (mc.portamentoStart <= 113) ? 113 : mc.portamentoStart;
-			mc.portamentoStart = (mc.portamentoStart >= 856) ? 856 : mc.portamentoStart;
-            
+			
 			mc.period = mc.portamentoStart;
-            mc.periodInc = calcPeriodIncrement(mc.portamentoStart);
+            mc.periodInc = calcPeriodIncrement(mc.period);
 
             mc.portamentoStart += mc.portamentoStep;
+			mc.portamentoStart = (mc.portamentoStart <= ModuleConst.MIN_PERIOD) ? ModuleConst.MIN_PERIOD : mc.portamentoStart;
+			mc.portamentoStart = (mc.portamentoStart >= ModuleConst.MAX_PERIOD) ? ModuleConst.MAX_PERIOD : mc.portamentoStart;
 
-			if (mc.portamentoStep < 0)
+            if (mc.portamentoStep < 0)
             {
-				mc.portamentoStart = (mc.portamentoStart > mc.portamentoEnd) ? mc.portamentoStart : mc.portamentoEnd;
-            }			
-			else
+                mc.portamentoStart = (mc.portamentoStart > mc.portamentoEnd) ? mc.portamentoStart : mc.portamentoEnd;
+            }
+            else
             {
-				mc.portamentoStart = (mc.portamentoStart < mc.portamentoEnd) ? mc.portamentoStart : mc.portamentoEnd;
-			}
+                mc.portamentoStart = (mc.portamentoStart < mc.portamentoEnd) ? mc.portamentoStart : mc.portamentoEnd;
+            }
             return true;
 		}
 
@@ -303,8 +302,8 @@ namespace ModuleSystem
 
             mc.periodInc = calcPeriodIncrement(mc.vibratoPeriod);
             mc.vibratoPeriod = mc.vibratoStart + (int)(mc.vibratoAdd * ((float)mc.vibratoAmp / 128.0f));
-			mc.vibratoPeriod = (mc.vibratoPeriod <= 113) ? 113 : mc.vibratoPeriod;
-			mc.vibratoPeriod = (mc.vibratoPeriod >= 856) ? 856 : mc.vibratoPeriod;
+			mc.vibratoPeriod = (mc.vibratoPeriod <= ModuleConst.MIN_PERIOD) ? ModuleConst.MIN_PERIOD : mc.vibratoPeriod;
+			mc.vibratoPeriod = (mc.vibratoPeriod >= ModuleConst.MAX_PERIOD) ? ModuleConst.MAX_PERIOD : mc.vibratoPeriod;
             mc.vibratoCount = (mc.vibratoCount + mc.vibratoFreq) & 0x3F;
             return true;
 		}
@@ -678,7 +677,7 @@ namespace ModuleSystem
 		public override bool readFromStream(Stream stream)
 		{
 			fileLength = stream.Length;
-			baseVolume = 128;
+			baseVolume = 1.0f;
 			BPMSpeed = 125;
 			tempo = 6;
 
