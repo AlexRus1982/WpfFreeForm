@@ -379,8 +379,8 @@ namespace ModuleSystem
                     mc.noteIndex = pe.noteIndex;
                     mc.lastPeriod = mc.period;
                     mc.portamentoStart = mc.period;
-                    mc.portamentoEnd = ModuleConst.getNotePeriod(mc.noteIndex - 1, mc.currentFineTune);
                     mc.period = ModuleConst.getNotePeriod(mc.noteIndex - 1, mc.currentFineTune);
+                    mc.portamentoEnd = mc.period;
                     mc.periodInc = calcPeriodIncrement(mc.period);
 
                     //if (pe.effekt != 0x03 && pe.effekt != 0x05)
