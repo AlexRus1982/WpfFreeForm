@@ -18,7 +18,7 @@
                 <DropShadowEffect BlurRadius="20" Opacity="0.75" ShadowDepth="10" Color="#BF000000"/>
             </Image.Effect>
         </Image>
-        <Image HorizontalAlignment="Left" Margin="70,95,0,0" VerticalAlignment="Top" MouseDown="OpenSound_Click" MouseEnter="Buttons_OnMouseEnter" MouseLeave="Buttons_OnMouseLeave" Width="32" Height="32" Source="/Resources/Sound32x32.png">
+        <Image HorizontalAlignment="Left" Margin="145,80,0,0" VerticalAlignment="Top" MouseDown="OpenSound_Click" MouseEnter="Buttons_OnMouseEnter" MouseLeave="Buttons_OnMouseLeave" Width="32" Height="32" Source="/Resources/Sound32x32.png">
             <Image.Effect>
                 <DropShadowEffect BlurRadius="20" Opacity="0.0" ShadowDepth="0" Color="#FFFF00FF" Direction="0"/>
             </Image.Effect>
