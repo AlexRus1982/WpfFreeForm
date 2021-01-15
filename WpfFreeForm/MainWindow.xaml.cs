@@ -13,6 +13,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using Microsoft.Win32;
+using System.Windows.Media.Effects;
 
 using ModuleSystem;
 
@@ -33,6 +34,20 @@ namespace WpfFreeFormModulePlayer
         private void Close_Click(object sender, RoutedEventArgs e)
         {
             Close();
+        }
+
+        private void Buttons_OnMouseEnter(object sender, MouseEventArgs e)
+        {
+            Image el = (Image)sender;
+            DropShadowEffect dse = (DropShadowEffect)el.Effect;
+            dse.Opacity = 0.75f;
+            
+        }
+        private void Buttons_OnMouseLeave(object sender, MouseEventArgs e)
+        {
+            Image el = (Image)sender;
+            DropShadowEffect dse = (DropShadowEffect)el.Effect;
+            dse.Opacity = 0.0f;
         }
 
         private void OpenSound_Click(object sender, RoutedEventArgs e)

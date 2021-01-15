@@ -7,11 +7,45 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Resources\Close.png" />
+    <None Remove="Resources\Close32x32.png" />
     <None Remove="Resources\FormSkin.png" />
+    <None Remove="Resources\Pause.png" />
+    <None Remove="Resources\Pause32x32.png" />
+    <None Remove="Resources\Play.png" />
+    <None Remove="Resources\Play32x32.png" />
+    <None Remove="Resources\Sound.png" />
+    <None Remove="Resources\Sound32x32.png" />
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="Resources\FormSkin.png" />
+    <Resource Include="Resources\Close.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Resources\Close32x32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Resources\FormSkin.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Resources\Pause.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Resources\Pause32x32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Resources\Play.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Resources\Play32x32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Resources\Sound.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Resources\Sound32x32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
   </ItemGroup>
 
   <ItemGroup>

@@ -18,9 +18,25 @@
                 <DropShadowEffect BlurRadius="20" Opacity="0.75" ShadowDepth="10" Color="#BF000000"/>
             </Image.Effect>
         </Image>
-        <Button Content="Open" HorizontalAlignment="Left" Margin="30,39,0,0" Padding="5" VerticalAlignment="Top" Click="OpenSound_Click" Height="28"/>
-        <Button Content="x" HorizontalAlignment="Left" Margin="223,13,0,0" Padding="5" VerticalAlignment="Top" Click="Close_Click" Width="28" Height="28"/>
-        <Button Content=">" HorizontalAlignment="Left" Margin="130,241,0,0" Padding="5" VerticalAlignment="Top" Click="StartSound_Click" Width="28" FontWeight="Bold" Height="28"/>
-        <Button Content="[]" HorizontalAlignment="Left" Margin="238,207,0,0" Padding="5" VerticalAlignment="Top" Click="StopSound_Click" Width="28" FontWeight="Bold" Height="28"/>
+        <Image HorizontalAlignment="Left" Margin="30,39,0,0" VerticalAlignment="Top" MouseDown="OpenSound_Click" MouseEnter="Buttons_OnMouseEnter" MouseLeave="Buttons_OnMouseLeave" Width="32" Height="32" Source="/Resources/Sound32x32.png">
+            <Image.Effect>
+                <DropShadowEffect BlurRadius="20" Opacity="0.0" ShadowDepth="0" Color="#FFFF00FF" Direction="0"/>
+            </Image.Effect>
+        </Image>
+        <Image HorizontalAlignment="Left" Margin="280,20,0,0" VerticalAlignment="Top" MouseDown="Close_Click" MouseEnter="Buttons_OnMouseEnter" MouseLeave="Buttons_OnMouseLeave" Width="32" Height="32" Source="/Resources/Close32x32.png">
+            <Image.Effect>
+                <DropShadowEffect BlurRadius="20" Opacity="0.0" ShadowDepth="0" Color="#FFFF0000" Direction="0"/>
+            </Image.Effect>
+        </Image>
+        <Image HorizontalAlignment="Left" Margin="130,238,0,0" VerticalAlignment="Top" MouseDown="StartSound_Click" MouseEnter="Buttons_OnMouseEnter" MouseLeave="Buttons_OnMouseLeave" Width="32" Height="32" Source="/Resources/Play32x32.png">
+            <Image.Effect>
+                <DropShadowEffect BlurRadius="20" Opacity="0.0" ShadowDepth="0" Color="#FFFFFFFF" Direction="0"/>
+            </Image.Effect>
+        </Image>
+        <Image HorizontalAlignment="Left" Margin="235,203,0,0" VerticalAlignment="Top" MouseDown="StopSound_Click" MouseEnter="Buttons_OnMouseEnter" MouseLeave="Buttons_OnMouseLeave" Width="32" Height="32" Source="/Resources/Pause32x32.png">
+            <Image.Effect>
+                <DropShadowEffect BlurRadius="20" Opacity="0.0" ShadowDepth="0" Color="#FFFFFFFF" Direction="0"/>
+            </Image.Effect>
+        </Image>
     </Grid>
 </Window>
