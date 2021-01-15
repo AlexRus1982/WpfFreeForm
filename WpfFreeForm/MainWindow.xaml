@@ -23,7 +23,7 @@
                 <DropShadowEffect BlurRadius="20" Opacity="0.0" ShadowDepth="0" Color="#FFFF00FF" Direction="0"/>
             </Image.Effect>
         </Image>
-        <Image HorizontalAlignment="Left" Margin="280,20,0,0" VerticalAlignment="Top" MouseDown="Close_Click" MouseEnter="Buttons_OnMouseEnter" MouseLeave="Buttons_OnMouseLeave" Width="32" Height="32" Source="/Resources/Close32x32.png">
+        <Image HorizontalAlignment="Left" Margin="266,40,0,0" VerticalAlignment="Top" MouseDown="Close_Click" MouseEnter="Buttons_OnMouseEnter" MouseLeave="Buttons_OnMouseLeave" Width="32" Height="32" Source="/Resources/Close32x32.png">
             <Image.Effect>
                 <DropShadowEffect BlurRadius="20" Opacity="0.0" ShadowDepth="0" Color="#FFFF0000" Direction="0"/>
             </Image.Effect>
