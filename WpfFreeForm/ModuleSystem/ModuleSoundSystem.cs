@@ -1,7 +1,5 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using System.Media;
-using System.Threading.Tasks;
 
 namespace ModuleSystem
 {
@@ -10,16 +8,14 @@ namespace ModuleSystem
     //-------------------------------------------------------------------------------------------------------
     public partial class ModuleSoundSystem
     {
-        private uint samplesPerSecond = 22050;
+        private uint samplesPerSecond = 44100;
         private uint musicBufferLen = 0;
 
         private SoundPlayer player = new SoundPlayer();
         private BinaryWriter writer = new BinaryWriter(new MemoryStream());
-
         public ModuleSoundSystem()
         {
         }
-
         public BinaryWriter getBuffer
         {
             get
@@ -33,12 +29,10 @@ namespace ModuleSystem
             {
             }
         }
-
         public void SetSampleRate(uint samplesPerSecond)
         {
             this.samplesPerSecond = samplesPerSecond;
         }
-        
         public void SetBufferLen(uint len)
         {
             musicBufferLen = len;
@@ -46,7 +40,6 @@ namespace ModuleSystem
             WriteWavHeader(writer);
             writer.BaseStream.Seek(44, SeekOrigin.Begin);
         }
-        
         private void WriteWavHeader(BinaryWriter writer)
         {
             char[] chunkId = { 'R', 'I', 'F', 'F' };
@@ -79,14 +72,12 @@ namespace ModuleSystem
             writer.Write(subchunk2Id);
             writer.Write(subchunk2Size);
         }
-        
         public void Play()
         {
             writer.BaseStream.Seek(0, SeekOrigin.Begin);
             player.Stream = writer.BaseStream;
             player.Play();
         }
-
         public void Stop()
         {
             player.Stop();
