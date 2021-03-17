@@ -36,6 +36,7 @@ namespace ModuleSystem
         public const int MAXVOLUME = 64;
         public const int SM_16BIT = 0x04;   // 16 BIT
         public const int SM_STEREO = 0x08;  // STEREO
+        public const int SOUND_AMP = 32760;  // MAX SOUND AMP -32768..32767
 
         public static string[] noteStrings =
         {
@@ -688,14 +689,11 @@ namespace ModuleSystem
                         if ((mc.instrumentPosition >= mc.instrumentRepeatStop) && (mc.instrumentLoopStart))
                         	mc.instrumentPosition = mc.instrumentRepeatStart;
 
-                        //if (mc.instrumentPosition >= mc.instrumentRepeatStop)
-                        //    mc.instrumentPosition  = mc.instrumentRepeatStart;
-
                         if (mc.instrumentPosition < mc.instrumentLength)
 						{
-                            //mixValue += getSampleValueSimple(mc);
+                            mixValue += getSampleValueSimple(mc);
                             //mixValue += getSampleValueLinear(mc);
-                            mixValue += getSampleValueSpline(mc);
+                            //mixValue += getSampleValueSpline(mc);
                             //mixValueL += (((ch & 0x03) == 0) || ((ch & 0x03) == 3)) ? mixValue : 0;
                             //mixValueR += (((ch & 0x03) == 1) || ((ch & 0x03) == 2)) ? mixValue : 0;
                         }
@@ -703,8 +701,8 @@ namespace ModuleSystem
 					mc.instrumentPosition += mc.periodInc;
 				}
                 mixValue /= module.nChannels;
-                mixValue = (mixValue < -32767.0f) ? -32767.0f : mixValue;
-                mixValue = (mixValue >  32767.0f) ?  32767.0f : mixValue;
+                mixValue = (mixValue < -1.0f) ? -1.0f : mixValue;
+                mixValue = (mixValue >  1.0f) ?  1.0f : mixValue;
 
                 //mixValueL /= module.nChannels * 2.0f;
                 //mixValueL = (mixValueL < -1.0f) ? -1.0f : mixValueL;
@@ -714,7 +712,7 @@ namespace ModuleSystem
                 //mixValueR = (mixValueR < -1.0f) ? -1.0f : mixValueR;
                 //mixValueR = (mixValueR >  1.0f) ?  1.0f : mixValueR;
 
-                mixingBuffer.Write((short)mixValue);
+                mixingBuffer.Write((short)(mixValue * ModuleConst.SOUND_AMP));
                 //mixingBuffer.Write((short)(32767 * (mixValueR * 0.75f + mixValueL * 0.25f)));
                 //mixingBuffer.Write((short)(32767 * (mixValueL * 0.75f + mixValueR * 0.25f)));
 
@@ -809,7 +807,7 @@ namespace ModuleSystem
             if (length > 0)
             {
                 for (int s = 0; s < length; s++)
-                    instrumentData.Add((float)(ModuleUtils.readSignedByte(stream)) * 0.0078125f * 32767);  // 0.0078125f = 1/128
+                    instrumentData.Add((float)(ModuleUtils.readSignedByte(stream)) * 0.0078125f);  // 0.0078125f = 1/128
             }
         }
         public void Clear()
