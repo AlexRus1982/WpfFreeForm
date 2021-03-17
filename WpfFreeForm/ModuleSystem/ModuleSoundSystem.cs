@@ -4,6 +4,7 @@ using System.Media;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Threading;
+using System.Threading.Tasks;
 using NAudio.Wave;
 
 namespace ModuleSystem
@@ -247,11 +248,10 @@ namespace ModuleSystem
         private WaveOutEvent waveOut;
         private WaveFileReader reader;
 
-        public void StreamPlayerTest()
+        
+        protected void GenWave()
         {
             Random rnd = new Random();
-
-            this.PlayAsync();
 
             //бесконечно пишем звук
             while (true)
@@ -266,8 +266,14 @@ namespace ModuleSystem
                 }
                 Console.WriteLine("freq {0:0.00}", freq);
                 //отдыхаем секунду
-                Thread.Sleep(990);
+                Thread.Sleep(2990);
             };
+        }
+
+        public void StreamPlayerTest()
+        {
+            this.PlayAsync();
+            Task.Factory.StartNew(()=> GenWave());
         }
 
         public StreamPlayer(int sampleRate = 8000)
