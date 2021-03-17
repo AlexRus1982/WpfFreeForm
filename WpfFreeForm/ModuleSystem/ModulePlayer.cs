@@ -14,7 +14,7 @@ namespace ModuleSystem
         public const string COPYRIGHT = "Copyright by Alex 2020";
         public const string FULLVERSION = PROGRAM + " " + VERSION + " " + COPYRIGHT;
 
-        public const int SOUNDFREQUENCY = 44100;
+        public const int SOUNDFREQUENCY = 96000; //44100
         public const int SOUNDBITS = 16;
         public const int MONO = 0x01;
         public const int STEREO = 0x02;
@@ -341,7 +341,6 @@ namespace ModuleSystem
     //-------------------------------------------------------------------------------------------------------
     public class ModuleMixer
     {
-        protected int mixFreq = 44100;
         protected int mixBufferLen = 8192;
         protected int mixBits = 16;
         protected int mixChnls = 2;
@@ -390,11 +389,11 @@ namespace ModuleSystem
         }
         public int calcSamplesPerTick(int currentBPM)
 		{
-			return (currentBPM <= 0) ? 0 : (int)(mixFreq * 2.5f / currentBPM);
+			return (currentBPM <= 0) ? 0 : (int)(ModuleConst.SOUNDFREQUENCY * 2.5f / currentBPM);
 		}
 		public float calcPeriodIncrement(int period)
 		{			
-			return (period != 0) ? (float)ModuleConst.AMIGA_FREQUENCY / (period * mixFreq) : 1.0f;
+			return (period != 0) ? (float)ModuleConst.AMIGA_FREQUENCY / (period * ModuleConst.SOUNDFREQUENCY) : 1.0f;
 		}
         public virtual void resetChannelInstrument(ModuleMixerChannel mc)
         {
@@ -572,11 +571,12 @@ namespace ModuleSystem
             System.Diagnostics.Debug.WriteLine("End mixing, time to mix = " + elapsedTime);
             System.Diagnostics.Debug.WriteLine("Mixing data length = " + mixingBuffer.BaseStream.Length);
 
-            int secondsAll = (int)mixingBuffer.BaseStream.Length / (2 * mixFreq);
+            int secondsAll = (int)mixingBuffer.BaseStream.Length / (2 * ModuleConst.SOUNDFREQUENCY);
             TimeSpan t = TimeSpan.FromSeconds(secondsAll);
             System.Diagnostics.Debug.WriteLine("Mixing data music length = " + t.ToString());
 
             BinaryWriter soundBuffer = soundSystem.getBuffer;
+            soundSystem.SetSampleRate(ModuleConst.SOUNDFREQUENCY);
             soundSystem.SetBufferLen((uint)mixingBuffer.BaseStream.Length / 2);
             mixingBuffer.BaseStream.Seek(0, SeekOrigin.Begin);
             mixingBuffer.BaseStream.CopyTo(soundBuffer.BaseStream);
@@ -617,11 +617,12 @@ namespace ModuleSystem
             System.Diagnostics.Debug.WriteLine("End mixing, time to mix = " + elapsedTime);
             System.Diagnostics.Debug.WriteLine("Mixing data length = " + mixingBuffer.BaseStream.Length);
 
-            int secondsAll = (int)mixingBuffer.BaseStream.Length / (2 * mixFreq);
+            int secondsAll = (int)mixingBuffer.BaseStream.Length / (2 * ModuleConst.SOUNDFREQUENCY);
             TimeSpan t = TimeSpan.FromSeconds(secondsAll);
             System.Diagnostics.Debug.WriteLine("Mixing data music length = " + t.ToString());
 
             BinaryWriter soundBuffer = soundSystem.getBuffer;
+            soundSystem.SetSampleRate(ModuleConst.SOUNDFREQUENCY);
             soundSystem.SetBufferLen((uint)mixingBuffer.BaseStream.Length / 2);
             mixingBuffer.BaseStream.Seek(0, SeekOrigin.Begin);
             mixingBuffer.BaseStream.CopyTo(soundBuffer.BaseStream);
