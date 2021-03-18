@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
+using System.Threading;
+using NAudio.Wave;
 
 namespace ModuleSystem
 {
@@ -14,7 +17,8 @@ namespace ModuleSystem
         public const string COPYRIGHT = "Copyright by Alex 2020";
         public const string FULLVERSION = PROGRAM + " " + VERSION + " " + COPYRIGHT;
 
-        public const int SOUNDFREQUENCY = 96000; //44100
+        public const int SOUNDFREQUENCY = 48000; //44100
+        public const int SOUNDBUFFERSECONDS = 4;
         public const int SOUNDBITS = 16;
         public const int MONO = 0x01;
         public const int STEREO = 0x02;
@@ -341,7 +345,7 @@ namespace ModuleSystem
     //-------------------------------------------------------------------------------------------------------
     public class ModuleMixer
     {
-        protected int mixBufferLen = 8192;
+        protected int mixBufferLen = ModuleConst.SOUNDFREQUENCY * ModuleConst.SOUNDBUFFERSECONDS;
         protected int mixBits = 16;
         protected int mixChnls = 2;
 
@@ -375,8 +379,13 @@ namespace ModuleSystem
         protected bool mixStart = false;
         protected bool soundSystemReady = false;
         protected bool mixingReady = false;
-        protected ModuleSoundSystem soundSystem = new ModuleSoundSystem();
-        protected BinaryWriter mixingBuffer = new BinaryWriter(new MemoryStream());
+
+        private WaveOutEvent waveOut = null;
+        private SoundStream waveStream = null;
+        private WaveFileReader waveReader = null;
+
+        private System.Diagnostics.Stopwatch playTime;
+
         public ModuleMixer(SoundModule module)
         {
             this.module = module;
@@ -386,7 +395,48 @@ namespace ModuleSystem
                 tickEffectsUsed.Add(false);
                 effectsEUsed.Add(false);
             }
+
+            waveStream = new SoundStream(ModuleConst.SOUNDFREQUENCY);
+            WriteWavHeader(waveStream);
+            waveOut = new WaveOutEvent();
         }
+
+        private void WriteWavHeader(SoundStream stream)
+        {
+            BinaryWriter writer = new BinaryWriter(stream);
+            writer.Seek(0, SeekOrigin.Begin);
+
+            char[] chunkId = { 'R', 'I', 'F', 'F' };
+            char[] format = { 'W', 'A', 'V', 'E' };
+            char[] subchunk1Id = { 'f', 'm', 't', ' ' };
+            char[] subchunk2Id = { 'd', 'a', 't', 'a' };
+            uint subchunk1Size = 16;
+            uint headerSize = 8;
+            ushort audioFormat = 1;
+            ushort numChannels = 1;  // Mono - 1, Stereo - 2
+            ushort bitsPerSample = 16;
+            ushort blockAlign = (ushort)(numChannels * (bitsPerSample / 8));
+            uint sampleRate = (uint)ModuleConst.SOUNDFREQUENCY;
+            uint byteRate = sampleRate * blockAlign;
+            uint waveSize = 4;
+            uint subchunk2Size = uint.MaxValue / 2 - 36; //)(int.MaxValue * blockAlign);
+            uint chunkSize = waveSize + headerSize + subchunk1Size + headerSize + subchunk2Size;
+
+            writer.Write(chunkId);
+            writer.Write(chunkSize);
+            writer.Write(format);
+            writer.Write(subchunk1Id);
+            writer.Write(subchunk1Size);
+            writer.Write(audioFormat);
+            writer.Write(numChannels);
+            writer.Write(sampleRate);
+            writer.Write(byteRate);
+            writer.Write(blockAlign);
+            writer.Write(bitsPerSample);
+            writer.Write(subchunk2Id);
+            writer.Write(subchunk2Size);
+        }
+
         public int calcSamplesPerTick(int currentBPM)
 		{
 			return (currentBPM <= 0) ? 0 : (int)(ModuleConst.SOUNDFREQUENCY * 2.5f / currentBPM);
@@ -517,7 +567,73 @@ namespace ModuleSystem
 			else updateTickEffects();
 			counter++;
 		}
-        public void mixModule(int startPosition = 0)
+
+        //public void mixModule(int startPosition = 0)
+        //{
+        //    track = startPosition;
+
+        //    pattern = module.patterns[module.arrangement[track]];
+        //    //module.BPMSpeed = 229;
+        //    //module.tempo = 5;
+        //    System.Diagnostics.Debug.WriteLine("Mixer -> " + module.BPMSpeed);
+
+        //    mixChannels.Clear();
+        //    for (int ch = 0; ch < module.nChannels; ch++)
+        //    {
+        //        ModuleMixerChannel mc = new ModuleMixerChannel();
+        //        mc.instrument = module.instruments[0];
+        //        mc.lastInstrument = module.instruments[0];
+        //        mixChannels.Add(mc);
+        //    }
+
+        //    var startTime = System.Diagnostics.Stopwatch.StartNew();
+        //    System.Diagnostics.Debug.WriteLine("Start mixing -> ...");
+
+        //    mixingBuffer.BaseStream.SetLength(0);
+        //    mixingBuffer.BaseStream.Seek(0, SeekOrigin.Begin);
+
+        //    moduleEnd = false;
+        //    while (!moduleEnd)
+        //    {
+        //        mixData();
+        //    }
+
+        //    string usedNoteEffects  = "noteEffects : ";
+        //    string usedTickEffects  = "tickEffects : ";
+        //    string usedEEffects     = "   EEffects : ";
+
+        //    for (int i = 0; i < 16; i++)
+        //    {
+        //        usedNoteEffects += (noteEffectsUsed[i]) ? ModuleUtils.getAsHex(i, 2) + " " : "";
+        //        usedTickEffects += (tickEffectsUsed[i]) ? ModuleUtils.getAsHex(i, 2) + " " : "";
+        //        usedEEffects    += (effectsEUsed[i])    ? ModuleUtils.getAsHex(i, 2) + " " : "";
+        //    }
+        //    System.Diagnostics.Debug.WriteLine(usedNoteEffects);
+        //    System.Diagnostics.Debug.WriteLine(usedTickEffects);
+        //    System.Diagnostics.Debug.WriteLine(usedEEffects);
+
+        //    startTime.Stop();
+        //    var resultTime = startTime.Elapsed;
+        //    string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:000}",
+        //                                        resultTime.Hours,
+        //                                        resultTime.Minutes,
+        //                                        resultTime.Seconds,
+        //                                        resultTime.Milliseconds);
+        //    System.Diagnostics.Debug.WriteLine("End mixing, time to mix = " + elapsedTime);
+        //    System.Diagnostics.Debug.WriteLine("Mixing data length = " + mixingBuffer.BaseStream.Length);
+
+        //    int secondsAll = (int)mixingBuffer.BaseStream.Length / (2 * ModuleConst.SOUNDFREQUENCY);
+        //    TimeSpan t = TimeSpan.FromSeconds(secondsAll);
+        //    System.Diagnostics.Debug.WriteLine("Mixing data music length = " + t.ToString());
+
+        //    BinaryWriter soundBuffer = soundSystem.getBuffer;
+        //    soundSystem.SetSampleRate(ModuleConst.SOUNDFREQUENCY);
+        //    soundSystem.SetBufferLen((uint)mixingBuffer.BaseStream.Length / 2);
+        //    mixingBuffer.BaseStream.Seek(0, SeekOrigin.Begin);
+        //    mixingBuffer.BaseStream.CopyTo(soundBuffer.BaseStream);
+        //}
+
+        public void initModule(int startPosition = 0)
         {
             track = startPosition;
 
@@ -535,107 +651,40 @@ namespace ModuleSystem
                 mixChannels.Add(mc);
             }
 
-            var startTime = System.Diagnostics.Stopwatch.StartNew();
-            System.Diagnostics.Debug.WriteLine("Start mixing -> ...");
-
-            mixingBuffer.BaseStream.SetLength(0);
-            mixingBuffer.BaseStream.Seek(0, SeekOrigin.Begin);
-
             moduleEnd = false;
-            while (!moduleEnd)
-            {
-                mixData();
-            }
-
-            string usedNoteEffects  = "noteEffects : ";
-            string usedTickEffects  = "tickEffects : ";
-            string usedEEffects     = "   EEffects : ";
-
-            for (int i = 0; i < 16; i++)
-            {
-                usedNoteEffects += (noteEffectsUsed[i]) ? ModuleUtils.getAsHex(i, 2) + " " : "";
-                usedTickEffects += (tickEffectsUsed[i]) ? ModuleUtils.getAsHex(i, 2) + " " : "";
-                usedEEffects    += (effectsEUsed[i])    ? ModuleUtils.getAsHex(i, 2) + " " : "";
-            }
-            System.Diagnostics.Debug.WriteLine(usedNoteEffects);
-            System.Diagnostics.Debug.WriteLine(usedTickEffects);
-            System.Diagnostics.Debug.WriteLine(usedEEffects);
-
-            startTime.Stop();
-            var resultTime = startTime.Elapsed;
-            string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:000}",
-                                                resultTime.Hours,
-                                                resultTime.Minutes,
-                                                resultTime.Seconds,
-                                                resultTime.Milliseconds);
-            System.Diagnostics.Debug.WriteLine("End mixing, time to mix = " + elapsedTime);
-            System.Diagnostics.Debug.WriteLine("Mixing data length = " + mixingBuffer.BaseStream.Length);
-
-            int secondsAll = (int)mixingBuffer.BaseStream.Length / (2 * ModuleConst.SOUNDFREQUENCY);
-            TimeSpan t = TimeSpan.FromSeconds(secondsAll);
-            System.Diagnostics.Debug.WriteLine("Mixing data music length = " + t.ToString());
-
-            BinaryWriter soundBuffer = soundSystem.getBuffer;
-            soundSystem.SetSampleRate(ModuleConst.SOUNDFREQUENCY);
-            soundSystem.SetBufferLen((uint)mixingBuffer.BaseStream.Length / 2);
-            mixingBuffer.BaseStream.Seek(0, SeekOrigin.Begin);
-            mixingBuffer.BaseStream.CopyTo(soundBuffer.BaseStream);
-        }
-        public void mixPattern(int pattNum = 0)
-        {
-            pattern = module.patterns[pattNum];
-            System.Diagnostics.Debug.WriteLine("Mixer -> " + module.BPMSpeed);
-
-            mixChannels.Clear();
-            for (int ch = 0; ch < module.nChannels; ch++)
-            {
-                ModuleMixerChannel mc = new ModuleMixerChannel();
-                mc.instrument = module.instruments[0];
-                mc.lastInstrument = module.instruments[0];
-                mixChannels.Add(mc);
-            }
-
-            var startTime = System.Diagnostics.Stopwatch.StartNew();
-            System.Diagnostics.Debug.WriteLine("Start mixing -> ...");
-
-            mixingBuffer.BaseStream.SetLength(0);
-            mixingBuffer.BaseStream.Seek(0, SeekOrigin.Begin);
-
-            pattEnd = false;
-            while (!pattEnd)
-            {
-                mixData();
-            }
-
-            startTime.Stop();
-            var resultTime = startTime.Elapsed;
-            string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:000}",
-                                                resultTime.Hours,
-                                                resultTime.Minutes,
-                                                resultTime.Seconds,
-                                                resultTime.Milliseconds);
-            System.Diagnostics.Debug.WriteLine("End mixing, time to mix = " + elapsedTime);
-            System.Diagnostics.Debug.WriteLine("Mixing data length = " + mixingBuffer.BaseStream.Length);
-
-            int secondsAll = (int)mixingBuffer.BaseStream.Length / (2 * ModuleConst.SOUNDFREQUENCY);
-            TimeSpan t = TimeSpan.FromSeconds(secondsAll);
-            System.Diagnostics.Debug.WriteLine("Mixing data music length = " + t.ToString());
-
-            BinaryWriter soundBuffer = soundSystem.getBuffer;
-            soundSystem.SetSampleRate(ModuleConst.SOUNDFREQUENCY);
-            soundSystem.SetBufferLen((uint)mixingBuffer.BaseStream.Length / 2);
-            mixingBuffer.BaseStream.Seek(0, SeekOrigin.Begin);
-            mixingBuffer.BaseStream.CopyTo(soundBuffer.BaseStream);
+            //while (!moduleEnd)
+            //{
+            //    mixData();
+            //}
         }
 
         public virtual void playModule(int startPosition = 0)
 		{
-            soundSystem.Play();
+            initModule(startPosition);
+            waveOut.Stop();
+
+            ThreadPool.QueueUserWorkItem((_) =>
+            {
+                WriteWavHeader(waveStream);
+                waveReader = new WaveFileReader(waveStream);
+                waveOut.Init(waveReader);
+                waveOut.Play();
+            });
+
+            ThreadPool.QueueUserWorkItem((_) =>
+            {
+                while (!moduleEnd)
+                {
+                    mixData();
+                    Thread.Sleep(ModuleConst.SOUNDBUFFERSECONDS * 750);
+                }
+            });
+
         }
 
         public virtual void Stop()
         {
-            soundSystem.Stop();
+            waveOut.Stop();
         }
 
 		private float getSampleValueSimple(ModuleMixerChannel mc)
@@ -672,6 +721,16 @@ namespace ModuleSystem
 
         private void mixData()
 		{
+            var startTime = System.Diagnostics.Stopwatch.StartNew();
+            System.Diagnostics.Debug.WriteLine("Start mixing -> ...");
+
+            //for (int pos = 0; pos < mixBufferLen; pos++)
+            //{
+            //    float mixValue = 0;
+            //    mixingBuffer.Write((short)(mixValue * ModuleConst.SOUND_AMP));
+            //}
+
+            //*
             string ms = " channels " + module.nChannels + " ";
             for (int pos = 0; pos < mixBufferLen; pos++)
 			{
@@ -713,7 +772,7 @@ namespace ModuleSystem
                 //mixValueR = (mixValueR < -1.0f) ? -1.0f : mixValueR;
                 //mixValueR = (mixValueR >  1.0f) ?  1.0f : mixValueR;
 
-                mixingBuffer.Write((short)(mixValue * ModuleConst.SOUND_AMP));
+                waveStream.Write((short)(mixValue * ModuleConst.SOUND_AMP));
                 //mixingBuffer.Write((short)(32767 * (mixValueR * 0.75f + mixValueL * 0.25f)));
                 //mixingBuffer.Write((short)(32767 * (mixValueL * 0.75f + mixValueR * 0.25f)));
 
@@ -722,9 +781,25 @@ namespace ModuleSystem
 				{
 					setBPM();
 					updateBPM();
-				}                
+				}
 			}
+            //*/
+            startTime.Stop();
+            var resultTime = startTime.Elapsed;
+            string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:000}",
+                                                resultTime.Hours,
+                                                resultTime.Minutes,
+                                                resultTime.Seconds,
+                                                resultTime.Milliseconds);
+            System.Diagnostics.Debug.WriteLine("End mixing, time to mix = " + elapsedTime);
         }
+        private void DebugMes(string mes)
+        {
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine(mes);
+#endif
+        }
+
     }
 
     public class ModuleInstrument

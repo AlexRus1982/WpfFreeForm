@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Media;
-using System.Collections;
+using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
@@ -96,9 +96,135 @@ namespace ModuleSystem
         }
     }
 
+    public partial class ModuleWaveOutSystem
+    {
+        private uint samplesPerSecond = 44100;
+        private uint musicBufferLen = 4096;
+
+        private WaveOut waveOut = new WaveOut();
+        private BinaryWriter writer = new BinaryWriter(new MemoryStream());
+        private WaveFileReader waveFileReader = null;
+        
+        public ModuleWaveOutSystem()
+        {
+            writer.BaseStream.SetLength(0);
+            WriteWavHeader(writer);
+            writer.BaseStream.Seek(44, SeekOrigin.Begin);
+            GenWave(true);
+            writer.BaseStream.Seek(0, SeekOrigin.Begin);
+            waveFileReader = new WaveFileReader(writer.BaseStream);
+            waveOut.PlaybackStopped += waveOutStopped;
+        }
+
+        protected void GenWave(Boolean zero = false)
+        {
+            Random rnd = new Random();
+
+            //случайная частота
+            var freq = 0.01 * rnd.Next(50);
+            //пишем синусоидальный звук в плеер
+            for (int i = 0; i < musicBufferLen; i++)
+            {
+                var v = (zero) ? (0) : (short)(Math.Sin(freq * i * Math.PI * 2) * short.MaxValue);
+                writer.Write(v);
+            }
+        }
+
+        public BinaryWriter getBuffer
+        {
+            get
+            {
+                writer.BaseStream.SetLength(0);
+                WriteWavHeader(writer);
+                writer.BaseStream.Seek(44, SeekOrigin.Begin);
+                return writer;
+            }
+            set
+            {
+            }
+        }
+        public void SetSampleRate(uint samplesPerSecond)
+        {
+            this.samplesPerSecond = samplesPerSecond;
+        }
+        public void SetBufferLen(uint len)
+        {
+            musicBufferLen = len;
+            writer.BaseStream.SetLength(0);
+            WriteWavHeader(writer);
+            writer.BaseStream.Seek(44, SeekOrigin.Begin);
+        }
+        private void WriteWavHeader(BinaryWriter writer)
+        {
+            char[] chunkId = { 'R', 'I', 'F', 'F' };
+            char[] format = { 'W', 'A', 'V', 'E' };
+            char[] subchunk1Id = { 'f', 'm', 't', ' ' };
+            char[] subchunk2Id = { 'd', 'a', 't', 'a' };
+            uint subchunk1Size = 16;
+            uint headerSize = 8;
+            ushort audioFormat = 1;
+            ushort numChannels = 1;  // Mono - 1, Stereo - 2
+            ushort bitsPerSample = 16;
+            ushort blockAlign = (ushort)(numChannels * (bitsPerSample / 8));
+            uint sampleRate = samplesPerSecond;
+            uint byteRate = sampleRate * blockAlign;
+            uint waveSize = 4;
+            uint subchunk2Size = musicBufferLen * blockAlign;
+            uint chunkSize = waveSize + headerSize + subchunk1Size + headerSize + subchunk2Size;
+
+            writer.Write(chunkId);
+            writer.Write(chunkSize);
+            writer.Write(format);
+            writer.Write(subchunk1Id);
+            writer.Write(subchunk1Size);
+            writer.Write(audioFormat);
+            writer.Write(numChannels);
+            writer.Write(sampleRate);
+            writer.Write(byteRate);
+            writer.Write(blockAlign);
+            writer.Write(bitsPerSample);
+            writer.Write(subchunk2Id);
+            writer.Write(subchunk2Size);
+        }
+        public void Play()
+        {
+            writer.BaseStream.Seek(0, SeekOrigin.Begin);
+            waveOut.Init(waveFileReader);
+            waveOut.Play();
+        }
+        public void Test()
+        {
+            writer.BaseStream.SetLength(0);
+            WriteWavHeader(writer);
+            writer.BaseStream.Seek(44, SeekOrigin.Begin);
+            GenWave();
+            writer.BaseStream.Seek(0, SeekOrigin.Begin);
+
+            waveOut.Init(waveFileReader);
+            Task.Factory.StartNew(() => waveOut.Play());
+            DebugMes("Player started !!!");
+        }
+
+        public void Stop()
+        {
+            waveOut.Stop();
+        }
+
+        public void waveOutStopped(object sender, EventArgs e)
+        {
+            DebugMes("Player played !!!");
+        }
+
+        private void DebugMes(string mes)
+        {
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine(mes);
+#endif
+        }
+    }
+
     class SoundStream : Stream
     {
-        private long length;
         private long position;
         private ConcurrentQueue<byte> sampleQueue;
         private AutoResetEvent dataAvailableSignaler = new AutoResetEvent(false);
@@ -106,11 +232,25 @@ namespace ModuleSystem
 
         public SoundStream(int sampleRate = 8000)
         {
-            length = int.MaxValue / 2 - 36;
             position = 0;
+            sampleQueue = new ConcurrentQueue<byte>();
+        }
 
-            //add wav header with too big length (near 70 hours for sample rate 8000)
-            sampleQueue = new ConcurrentQueue<byte>(BuildWavHeader((int)length, sampleRate));
+        /// <summary>
+        /// Write audio samples into stream
+        /// </summary>
+        public void Write(IEnumerable<short> samples)
+        {
+            //write samples to sample queue
+            foreach (var sample in samples)
+            {
+                sampleQueue.Enqueue((byte)(sample & 0xFF));
+                sampleQueue.Enqueue((byte)(sample >> 8));
+            }
+
+            //send signal to Read method
+            if (sampleQueue.Count >= preloadSize)
+                dataAvailableSignaler.Set();
         }
 
         /// <summary>
@@ -118,16 +258,14 @@ namespace ModuleSystem
         /// </summary>
         public void Write(short sample)
         {
-            byte[] bytes = BitConverter.GetBytes(sample);
-
-            //write samples to sample queue
-            sampleQueue.Enqueue(bytes[0]);
-            sampleQueue.Enqueue(bytes[1]);
+            sampleQueue.Enqueue((byte)(sample & 0xFF));
+            sampleQueue.Enqueue((byte)(sample >> 8));
 
             //send signal to Read method
             if (sampleQueue.Count >= preloadSize)
                 dataAvailableSignaler.Set();
         }
+
 
         /// <summary>
         /// Count of unread bytes in buffer
@@ -142,7 +280,7 @@ namespace ModuleSystem
         /// </summary>
         public override int Read(byte[] buffer, int offset, int count)
         {
-            if (position >= length)
+            if (position >= Length)
                 return 0;
 
             //wait while data will be available
@@ -154,12 +292,14 @@ namespace ModuleSystem
             //copy data from incoming queue to output buffer
             while (count > 0 && sampleQueue.Count > 0)
             {
+
                 byte b;
                 if (!sampleQueue.TryDequeue(out b)) return 0;
                 buffer[offset + res] = b;
                 count--;
                 res++;
                 position++;
+                
             }
 
             return res;
@@ -206,7 +346,7 @@ namespace ModuleSystem
 
         public override bool CanWrite
         {
-            get { return false; }
+            get { return true; }
         }
 
         public override void Flush()
@@ -216,18 +356,19 @@ namespace ModuleSystem
 
         public override long Length
         {
-            get { return length; }
+            get { return long.MaxValue; }
         }
 
         public override long Position
         {
             get { return position; }
-            set {; }
+            set { position = value; }
         }
 
         public override long Seek(long offset, SeekOrigin origin)
         {
-            throw new NotImplementedException();
+            position = 0 + offset;
+            return position;
         }
 
         public override void SetLength(long value)
@@ -237,7 +378,15 @@ namespace ModuleSystem
 
         public override void Write(byte[] buffer, int offset, int count)
         {
-            throw new NotImplementedException();
+            var res = 0;
+            while (count > 0)
+            {
+                byte b = buffer[offset + res];
+                sampleQueue.Enqueue(b);
+                count--;
+                res++;
+                position++;
+            }
         }
         #endregion
     }
@@ -248,46 +397,51 @@ namespace ModuleSystem
         private WaveOutEvent waveOut;
         private WaveFileReader reader;
 
-        
-        protected void GenWave()
-        {
-            Random rnd = new Random();
-
-            //бесконечно пишем звук
-            while (true)
-            {
-                //случайная частота
-                var freq = 0.01 * rnd.Next(10);
-                //пишем синусоидальный звук в плеер
-                for (int i = 0; i < 8000; i++)
-                {
-                    var v = (short)(Math.Sin(freq * i * Math.PI * 2) * short.MaxValue);
-                    this.Write(v);
-                }
-                Console.WriteLine("freq {0:0.00}", freq);
-                //отдыхаем секунду
-                Thread.Sleep(2990);
-            };
-        }
-
-        public void StreamPlayerTest()
-        {
-            this.PlayAsync();
-            Task.Factory.StartNew(()=> GenWave());
-        }
-
         public StreamPlayer(int sampleRate = 8000)
         {
             stream = new SoundStream(sampleRate);
             waveOut = new WaveOutEvent();
         }
 
+        public void Test()
+        {
+            Random rnd = new Random();
+
+            this.PlayAsync();
+
+            //бесконечно пишем звук
+            Task.Factory.StartNew(() =>
+            {
+                for (int j = 0; j < 30; j++)
+                {
+                    //случайная частота
+                    var freq = 0.01 * rnd.Next(10);
+                    //пишем синусоидальный звук в плеер
+                    for (int i = 0; i < 8000; i++)
+                    {
+                        var v = (short)(Math.Sin(freq * i * Math.PI * 2) * short.MaxValue);
+                        this.Write(v);
+                    }
+                    Thread.Sleep(100);
+                    DebugMes("Buffered " + stream.Buffered);
+                };
+            });
+        }
+
         /// <summary>
         /// Write audio samples into stream
         /// </summary>
-        public void Write(short sample)
+        public void Write(params short[] samples)
         {
-            stream.Write(sample);
+            stream.Write(samples);
+        }
+
+        /// <summary>
+        /// Write audio samples into stream
+        /// </summary>
+        public void Write(IEnumerable<short> samples)
+        {
+            stream.Write(samples);
         }
 
         /// <summary>
@@ -334,5 +488,14 @@ namespace ModuleSystem
             reader.Dispose();
             stream.Dispose();
         }
+
+        private void DebugMes(string mes)
+        {
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine(mes);
+#endif
+        }
+
     }
+
 }

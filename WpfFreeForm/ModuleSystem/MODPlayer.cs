@@ -631,7 +631,7 @@ namespace ModuleSystem
 			//mixer.mixInfo.speed = tempo;
 			
 			mixer = new MODMixer(this);
-			mixer.mixModule();
+			//mixer.mixModule();
 			//mixer.mixPattern(1);
 			return true;
 		}
