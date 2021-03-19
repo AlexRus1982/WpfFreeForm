@@ -68,6 +68,9 @@ namespace ModuleSystem
         }
 
         #region WAV header
+        /// <summary>
+        /// Prepair wave header with sampleRate frequency
+        /// </summary>
         private void WriteWavHeader(int sampleRate)
         {
             MemoryStream stream = new MemoryStream();
