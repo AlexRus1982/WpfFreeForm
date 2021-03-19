@@ -1,11 +1,7 @@
 ﻿using System;
 using System.IO;
-using System.Media;
-using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Threading;
-using System.Threading.Tasks;
-using NAudio.Wave;
 
 namespace ModuleSystem
 {
@@ -27,24 +23,7 @@ namespace ModuleSystem
         }
 
         /// <summary>
-        /// Write audio samples into stream
-        /// </summary>
-        public void Write(IEnumerable<short> samples)
-        {
-            //write samples to sample queue
-            foreach (var sample in samples)
-            {
-                sampleQueue.Enqueue((byte)(sample & 0xFF));
-                sampleQueue.Enqueue((byte)(sample >> 8));
-            }
-
-            //send signal to Read method
-            if (sampleQueue.Count >= preloadSize)
-                dataAvailableSignaler.Set();
-        }
-
-        /// <summary>
-        /// Write audio samples into stream
+        /// Write audio short sample -32768..32767 into stream
         /// </summary>
         public void Write(short sample)
         {
@@ -55,7 +34,6 @@ namespace ModuleSystem
             if (sampleQueue.Count >= preloadSize)
                 dataAvailableSignaler.Set();
         }
-
 
         /// <summary>
         /// Count of unread bytes in buffer
@@ -77,20 +55,14 @@ namespace ModuleSystem
             if (sampleQueue.Count < preloadSize)
                 dataAvailableSignaler.WaitOne();
 
-            var res = 0;
-
-            //copy data from incoming queue to output buffer
-            while (count > 0 && sampleQueue.Count > 0)
+            var res = offset;
+            while (count-- > 0 && sampleQueue.Count > 0) //copy data from incoming queue to output buffer
             {
-
                 byte b;
                 if (!sampleQueue.TryDequeue(out b)) return 0;
-                buffer[offset + res] = b;
-                count--;
-                res++;
-                position++;
-                
+                buffer[res++] = b;
             }
+            position += (res - offset);
 
             return res;
         }
@@ -100,7 +72,6 @@ namespace ModuleSystem
         {
             MemoryStream stream = new MemoryStream();
             BinaryWriter writer = new BinaryWriter(stream);
-            writer.Seek(0, SeekOrigin.Begin);
 
             char[] chunkId = { 'R', 'I', 'F', 'F' };
             char[] format = { 'W', 'A', 'V', 'E' };
@@ -115,7 +86,7 @@ namespace ModuleSystem
             //uint sampleRate = (uint)ModuleConst.SOUNDFREQUENCY;
             uint byteRate = (uint)sampleRate * blockAlign;
             uint waveSize = 4;
-            uint subchunk2Size = uint.MaxValue / 2 - 36; //)(int.MaxValue * blockAlign);
+            uint subchunk2Size = (uint)(int.MaxValue - 44); //)(int.MaxValue * blockAlign);
             uint chunkSize = waveSize + headerSize + subchunk1Size + headerSize + subchunk2Size;
 
             writer.Write(chunkId);
@@ -142,7 +113,6 @@ namespace ModuleSystem
         #endregion
 
         #region Stream impl
-
         public override bool CanRead
         {
             get { return true; }
@@ -155,7 +125,7 @@ namespace ModuleSystem
 
         public override bool CanWrite
         {
-            get { return true; }
+            get { return false; }
         }
 
         public override void Flush()
@@ -165,7 +135,7 @@ namespace ModuleSystem
 
         public override long Length
         {
-            get { return long.MaxValue; }
+            get { return (uint)(int.MaxValue - 44); }
         }
 
         public override long Position
@@ -182,8 +152,7 @@ namespace ModuleSystem
 
         public override long Seek(long offset, SeekOrigin origin)
         {
-            position = 0 + offset;
-            return position;
+            throw new NotImplementedException();
         }
 
         public override void SetLength(long value)
@@ -193,15 +162,7 @@ namespace ModuleSystem
 
         public override void Write(byte[] buffer, int offset, int count)
         {
-            var res = 0;
-            while (count > 0)
-            {
-                byte b = buffer[offset + res];
-                sampleQueue.Enqueue(b);
-                count--;
-                res++;
-                position++;
-            }
+            throw new NotImplementedException();
         }
         #endregion
     }

@@ -874,24 +874,13 @@ namespace ModuleSystem
         public override string ToString()
         {
             string res = ModuleConst.getNoteNameToIndex(noteIndex);
-            if ((period == 0 && noteIndex != 0) || (period != 0 && noteIndex == 0))
-                res += "!";
-            else
-                res += " ";
-            if (instrument != 0) res += ModuleUtils.getAsHex(instrument, 2);
-            else res += "..";
-
+            res += ((period == 0 && noteIndex != 0) || (period != 0 && noteIndex == 0)) ? "!" : " ";
+            res += (instrument != 0) ? ModuleUtils.getAsHex(instrument, 2) : "..";
             res += " ";
-            if ((effekt != 0) || (effektOp != 0))
-            {
-                res += ModuleUtils.getAsHex(effekt, 1);
-                res += ModuleUtils.getAsHex(effektOp, 2);
-            }
-            else res += "...";
+            res += ((effekt != 0) || (effektOp != 0)) ? ModuleUtils.getAsHex(effekt, 1) + ModuleUtils.getAsHex(effektOp, 2) : "...";
             return res;
         }
     }
-
     public class ModulePatternRow
     {
         public List<ModulePatternChannel> patternChannels = new List<ModulePatternChannel>();
@@ -917,7 +906,8 @@ namespace ModuleSystem
             if (patternRows[0] != null)
             {
                 string ln = "====";
-                for (int i = 0; i < patternRows[0].patternChannels.Count; i++) ln += "===========";
+                for (int i = 0; i < patternRows[0].patternChannels.Count; i++)
+                    ln += "===========";
 
                 res += ln + "\n";
 
@@ -992,7 +982,7 @@ namespace ModuleSystem
         protected void DebugMes(string mes)
         {
             #if DEBUG
-            System.Diagnostics.Debug.WriteLine(moduleName + " -> " + mes);
+            System.Diagnostics.Debug.WriteLine("Module " + moduleName + " -> " + mes);
             #endif
         }
     }
