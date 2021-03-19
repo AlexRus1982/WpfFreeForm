@@ -13,12 +13,12 @@ namespace ModuleSystem
     public static class ModuleConst
     {
         public const string VERSION = "V1.0";
-        public const string PROGRAM = "Sound module engine";
+        public const string PROGRAM = "Sound module player";
         public const string COPYRIGHT = "Copyright by Alex 2020";
         public const string FULLVERSION = PROGRAM + " " + VERSION + " " + COPYRIGHT;
 
         public const int SOUNDFREQUENCY = 48000; //44100
-        public const int SOUNDBUFFERSECONDS = 4;
+        public const int SOUNDBUFFERSECONDS = 1;
         public const int SOUNDBITS = 16;
         public const int MONO = 0x01;
         public const int STEREO = 0x02;
@@ -349,7 +349,7 @@ namespace ModuleSystem
         protected int mixBits = 16;
         protected int mixChnls = 2;
 
-        protected SoundModule module = null;
+        protected Module module = null;
         protected List<ModuleMixerChannel> mixChannels = new List<ModuleMixerChannel>();
         
         protected List<Func<ModuleMixerChannel, bool>> noteEffects = new List<Func<ModuleMixerChannel, bool>>();
@@ -361,7 +361,7 @@ namespace ModuleSystem
         protected List<Func<ModuleMixerChannel, bool>> effectsE = new List<Func<ModuleMixerChannel, bool>>();
         protected List<bool> effectsEUsed = new List<bool>();
 
-        protected bool played = false;
+        protected bool playing = false;
         protected bool moduleEnd = false;
         protected bool pattEnd = false;
         protected int counter = 0;
@@ -381,12 +381,12 @@ namespace ModuleSystem
         protected bool mixingReady = false;
 
         private WaveOutEvent waveOut = null;
-        private SoundStream waveStream = null;
+        private ModuleSoundStream waveStream = null;
         private WaveFileReader waveReader = null;
 
         private System.Diagnostics.Stopwatch playTime;
 
-        public ModuleMixer(SoundModule module)
+        public ModuleMixer(Module module)
         {
             this.module = module;
             for (int i = 0; i < 16; i++)
@@ -395,48 +395,7 @@ namespace ModuleSystem
                 tickEffectsUsed.Add(false);
                 effectsEUsed.Add(false);
             }
-
-            waveStream = new SoundStream(ModuleConst.SOUNDFREQUENCY);
-            WriteWavHeader(waveStream);
-            waveOut = new WaveOutEvent();
         }
-
-        private void WriteWavHeader(SoundStream stream)
-        {
-            BinaryWriter writer = new BinaryWriter(stream);
-            writer.Seek(0, SeekOrigin.Begin);
-
-            char[] chunkId = { 'R', 'I', 'F', 'F' };
-            char[] format = { 'W', 'A', 'V', 'E' };
-            char[] subchunk1Id = { 'f', 'm', 't', ' ' };
-            char[] subchunk2Id = { 'd', 'a', 't', 'a' };
-            uint subchunk1Size = 16;
-            uint headerSize = 8;
-            ushort audioFormat = 1;
-            ushort numChannels = 1;  // Mono - 1, Stereo - 2
-            ushort bitsPerSample = 16;
-            ushort blockAlign = (ushort)(numChannels * (bitsPerSample / 8));
-            uint sampleRate = (uint)ModuleConst.SOUNDFREQUENCY;
-            uint byteRate = sampleRate * blockAlign;
-            uint waveSize = 4;
-            uint subchunk2Size = uint.MaxValue / 2 - 36; //)(int.MaxValue * blockAlign);
-            uint chunkSize = waveSize + headerSize + subchunk1Size + headerSize + subchunk2Size;
-
-            writer.Write(chunkId);
-            writer.Write(chunkSize);
-            writer.Write(format);
-            writer.Write(subchunk1Id);
-            writer.Write(subchunk1Size);
-            writer.Write(audioFormat);
-            writer.Write(numChannels);
-            writer.Write(sampleRate);
-            writer.Write(byteRate);
-            writer.Write(blockAlign);
-            writer.Write(bitsPerSample);
-            writer.Write(subchunk2Id);
-            writer.Write(subchunk2Size);
-        }
-
         public int calcSamplesPerTick(int currentBPM)
 		{
 			return (currentBPM <= 0) ? 0 : (int)(ModuleConst.SOUNDFREQUENCY * 2.5f / currentBPM);
@@ -638,9 +597,8 @@ namespace ModuleSystem
             track = startPosition;
 
             pattern = module.patterns[module.arrangement[track]];
-            //module.BPMSpeed = 229;
-            //module.tempo = 5;
-            System.Diagnostics.Debug.WriteLine("Mixer -> " + module.BPMSpeed);
+            BPM = module.BPM;
+            speed = module.tempo;
 
             mixChannels.Clear();
             for (int ch = 0; ch < module.nChannels; ch++)
@@ -652,20 +610,23 @@ namespace ModuleSystem
             }
 
             moduleEnd = false;
-            //while (!moduleEnd)
-            //{
-            //    mixData();
-            //}
         }
 
         public virtual void playModule(int startPosition = 0)
 		{
             initModule(startPosition);
-            waveOut.Stop();
+            waveOut?.Stop();
+            waveReader?.Dispose();
+            waveStream?.Dispose();
+            waveOut?.Dispose();
 
+            waveStream = new ModuleSoundStream(ModuleConst.SOUNDFREQUENCY);
+            waveOut = new WaveOutEvent();
+            mixData();
+
+            playing = true;
             ThreadPool.QueueUserWorkItem((_) =>
             {
-                WriteWavHeader(waveStream);
                 waveReader = new WaveFileReader(waveStream);
                 waveOut.Init(waveReader);
                 waveOut.Play();
@@ -673,18 +634,28 @@ namespace ModuleSystem
 
             ThreadPool.QueueUserWorkItem((_) =>
             {
-                while (!moduleEnd)
+                while ((!moduleEnd) && playing)
                 {
                     mixData();
-                    Thread.Sleep(ModuleConst.SOUNDBUFFERSECONDS * 750);
+                    while (waveStream.QueueLength > ModuleConst.SOUNDFREQUENCY * ModuleConst.SOUNDBUFFERSECONDS * 2)
+                    {
+                        Thread.Sleep(100);
+                    }
+                    //Thread.Sleep(ModuleConst.SOUNDBUFFERSECONDS * 750);
+                    //DebugMes("Play position - " + waveOut.GetPosition() + " queue length - " + waveStream.QueueLength);
+                }
+                while (waveStream.QueueLength > 0)
+                {
+                    Thread.Sleep(100);
+                    //DebugMes("Play position - " + waveOut.GetPosition() + " queue length - " + waveStream.QueueLength);
                 }
             });
-
         }
 
         public virtual void Stop()
         {
             waveOut.Stop();
+            playing = false;
         }
 
 		private float getSampleValueSimple(ModuleMixerChannel mc)
@@ -722,13 +693,7 @@ namespace ModuleSystem
         private void mixData()
 		{
             var startTime = System.Diagnostics.Stopwatch.StartNew();
-            System.Diagnostics.Debug.WriteLine("Start mixing -> ...");
-
-            //for (int pos = 0; pos < mixBufferLen; pos++)
-            //{
-            //    float mixValue = 0;
-            //    mixingBuffer.Write((short)(mixValue * ModuleConst.SOUND_AMP));
-            //}
+            //System.Diagnostics.Debug.WriteLine("Start mixing -> ...");
 
             //*
             string ms = " channels " + module.nChannels + " ";
@@ -791,7 +756,7 @@ namespace ModuleSystem
                                                 resultTime.Minutes,
                                                 resultTime.Seconds,
                                                 resultTime.Milliseconds);
-            System.Diagnostics.Debug.WriteLine("End mixing, time to mix = " + elapsedTime);
+            System.Diagnostics.Debug.WriteLine("Mixing time = " + elapsedTime);
         }
         private void DebugMes(string mes)
         {
@@ -820,6 +785,7 @@ namespace ModuleSystem
         public ModuleInstrument()
         {
         }
+
         public override string ToString()
         {
             ///*
@@ -840,10 +806,12 @@ namespace ModuleSystem
             //*/
             //return this.toShortString();
         }
+
         public string toShortString()
         {
             return this.name;
         }
+
         public void readInstrumentHeader(Stream stream)
         {
             name = ModuleUtils.readString0(stream, 22);
@@ -877,6 +845,7 @@ namespace ModuleSystem
             else loopType = 0;
             repeatLength = (int)(repeatStop - repeatStart);
         }
+
         public void readInstrumentData(Stream stream)
         {
             instrumentData.Clear();
@@ -886,6 +855,7 @@ namespace ModuleSystem
                     instrumentData.Add((float)(ModuleUtils.readSignedByte(stream)) * 0.0078125f);  // 0.0078125f = 1/128
             }
         }
+
         public void Clear()
         {
             instrumentData.Clear();
@@ -965,11 +935,10 @@ namespace ModuleSystem
         }
     }
 
-    public class SoundModule : IDisposable
+    public class Module : IDisposable
     {
-        protected readonly string SoundModuleName = "Base module";
+        protected readonly string moduleName = "Base module";
         protected float position = 0;
-        protected ModuleSoundSystem soundSystem = new ModuleSoundSystem();
 
         public string fileName = "";
         public long fileLength = 0;
@@ -980,8 +949,8 @@ namespace ModuleSystem
         public int nInstruments = 0;
         public int nSamples = 0;
         public int nPatterns = 0;
-        public int BPMSpeed = 0;
-        public int tempo = 0;
+        public int BPM = 125;
+        public int tempo = 6;
         public int songLength = 0;
         public float baseVolume = 0.0f;
         public bool isAmigaLike = true;
@@ -1002,9 +971,9 @@ namespace ModuleSystem
                 rewindToPosition();
             }
         }
-        public SoundModule(string soundModuleName)
+        public Module(string Name)
         {
-            SoundModuleName = soundModuleName;
+            moduleName = Name;
         }
         public virtual bool checkFormat(Stream stream)
         {
@@ -1023,43 +992,43 @@ namespace ModuleSystem
         protected void DebugMes(string mes)
         {
             #if DEBUG
-            System.Diagnostics.Debug.WriteLine(SoundModuleName + " -> " + mes);
+            System.Diagnostics.Debug.WriteLine(moduleName + " -> " + mes);
             #endif
         }
     }
     public class ModulePlayer
     {
-        private List<SoundModule> libModules = new List<SoundModule>();
-        private SoundModule sModule = null;
+        private List<Module> libModules = new List<Module>();
+        private Module module = null;
         public float Position
         {
             get
             {
-                if (sModule != null) return sModule.Position;
+                if (module != null) return module.Position;
                 else return 0;
             }
             set
             {
-                if (sModule != null) sModule.Position = value;
+                if (module != null) module.Position = value;
             }
         }
         public ModulePlayer()
         {
-            libModules.Add(new MODSoundModule());
+            libModules.Add(new MODModule());
         }
         public bool OpenFromStream(Stream stream)
         {
-            if (sModule != null) sModule.Dispose();
+            module?.Dispose();
             for (int i = 0; i < libModules.Count; i++)
-                if (libModules[i].checkFormat(stream)) sModule = libModules[i];
+                if (libModules[i].checkFormat(stream)) module = libModules[i];
 
-            if (sModule != null) sModule.readFromStream(stream);
-            DebugMes(sModule.ToString());
+            module?.readFromStream(stream);
+            DebugMes(module.ToString());
             return true;
         }
         public bool OpenFromFile(string fileName)
         {
-            if (sModule != null) sModule.Dispose();
+            module?.Dispose();
             bool res = false;
             using (FileStream fstream = File.OpenRead(fileName))
             {
@@ -1070,19 +1039,19 @@ namespace ModuleSystem
         }
         public void Play()
         {
-            if (sModule != null) sModule.Play();
+            module?.Play();
         }
         public void PlayInstrument(int num)
         {
-            if (sModule != null) sModule.PlayInstrument(num);
+            module?.PlayInstrument(num);
         }
         public void Stop()
         {
-            if (sModule != null) sModule.Stop();
+            module?.Stop();
         }
         public void Pause()
         {
-            if (sModule != null) sModule.Pause();
+            module?.Pause();
         }
         private void DebugMes(string mes)
         {

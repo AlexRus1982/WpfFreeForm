@@ -414,7 +414,7 @@ namespace ModuleSystem
 			return true;
 		}
 		//----------------------------------------------------------------------------------------------
-		public MODMixer(SoundModule module) : base(module)
+		public MODMixer(Module module) : base(module)
         {
 			/*
 			for (int i = 0; i < 16; i++)
@@ -478,10 +478,10 @@ namespace ModuleSystem
 			effectsE.Add(/*effectEF*/noEffect);         // EF. INVERT LOOP
 		}
 	}
-	public class MODSoundModule : SoundModule
+	public class MODModule : Module
     {
 		private MODMixer mixer		= null;
-		public MODSoundModule():base("MOD format")
+		public MODModule():base("MOD format")
 		{
 			DebugMes("MOD Sound Module created");			
 		}
@@ -612,7 +612,7 @@ namespace ModuleSystem
 		{
 			fileLength = stream.Length;
 			baseVolume = 1.0f;
-			BPMSpeed = 125;
+			BPM = 125;
 			tempo = 6;
 
 			if (!checkFormat(stream)) return false;
@@ -704,26 +704,26 @@ namespace ModuleSystem
         {
 			if (num < 0 || num >= nSamples) return;
 
-			soundSystem.Stop();
-			//DebugMes("Instruments count - " + instruments.Count);
-			ModuleInstrument inst = instruments[num];
+			//soundSystem.Stop();
+			////DebugMes("Instruments count - " + instruments.Count);
+			//ModuleInstrument inst = instruments[num];
 			
-			uint samplesPerSecond = 44100;
-			float baseFreq = /*3546895.0f / */(float)(inst.baseFrequency * 2);
-			float frqMul = baseFreq / (float)(samplesPerSecond);
-			DebugMes("BaseFreq = " + inst.baseFrequency + " Freq mull = " + frqMul);
-			uint soundBufferLen = (uint)(inst.length / frqMul); 
-			DebugMes("SoundBufferLen = " + soundBufferLen + " Instrument len = " + inst.length);
+			//uint samplesPerSecond = 44100;
+			//float baseFreq = /*3546895.0f / */(float)(inst.baseFrequency * 2);
+			//float frqMul = baseFreq / (float)(samplesPerSecond);
+			//DebugMes("BaseFreq = " + inst.baseFrequency + " Freq mull = " + frqMul);
+			//uint soundBufferLen = (uint)(inst.length / frqMul); 
+			//DebugMes("SoundBufferLen = " + soundBufferLen + " Instrument len = " + inst.length);
 
-			BinaryWriter buffer = soundSystem.getBuffer;
-			soundSystem.SetBufferLen(soundBufferLen);
-			float fpos = 0;
-			for (int i = 0; i < soundBufferLen; i++)
-			{
-				if (fpos < inst.length) buffer.Write((short)(inst.instrumentData[(int)(fpos)]));
-				fpos += frqMul;
-			}
-			soundSystem.Play();
+			//BinaryWriter buffer = soundSystem.getBuffer;
+			//soundSystem.SetBufferLen(soundBufferLen);
+			//float fpos = 0;
+			//for (int i = 0; i < soundBufferLen; i++)
+			//{
+			//	if (fpos < inst.length) buffer.Write((short)(inst.instrumentData[(int)(fpos)]));
+			//	fpos += frqMul;
+			//}
+			//soundSystem.Play();
 		}
 		public override void Play()
         {
