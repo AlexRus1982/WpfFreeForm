@@ -5,9 +5,9 @@ using System.Threading;
 
 namespace ModuleSystem
 {
-    //-------------------------------------------------------------------------------------------------------
-    //-------------------------------------------------------------------------------------------------------
-    //-------------------------------------------------------------------------------------------------------
+    /// <summary>
+    /// ModuleSoundStream inherite "Stream" to implement some functions to generate sound wave from file : mod, xm ...
+    /// </summary>
     class ModuleSoundStream : Stream
     {
         private long position;
