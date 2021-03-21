@@ -1,13 +1,153 @@
-﻿using System.Text;
+﻿using System;
+using System.Text;
 using System.IO;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using NAudio.Wave;
 
 namespace ModuleSystem
 {
-	public class MODPattern : ModulePattern
+	public class MODMixerChannel : ModuleMixerChannel
 	{
-		private ModulePatternChannel createNewPatternChannel(Stream stream, int nSamples)
+		public MODPatternChannel patternChannel = null;
+		public MODInstrument instrument = null;
+		public MODInstrument lastInstrument = null;
+	}
+	public class MODInstrument
+	{
+		public string name = "";    // Name of the sample
+		public int number = 0;    // Number of the sample
+		public int length = 0;  // full length (already *2 --> Mod-Fomat)
+		public int fineTune = 0;    // Finetuning -8..+8
+		public float volume = 0;    // Basisvolume
+		public float repeatStart = 0; // # of the loop start (already *2 --> Mod-Fomat)
+		public float repeatStop = 0;  // # of the loop end   (already *2 --> Mod-Fomat)
+		public int repeatLength = 0;    // length of the loop
+		public int loopType = 0;    // 0: no Looping, 1: normal, 2: pingpong, 3: backwards
+		public int baseFrequency = 0;   // BaseFrequency
+
+		public List<float> instrumentData = new List<float>();    // The sampledata, already converted to 16 bit (always)
+																  // 8Bit: -128 to 127; 16Bit: -32768..0..+32767
+		public MODInstrument()
 		{
-			ModulePatternChannel channel = new ModulePatternChannel();
+		}
+
+		public override string ToString()
+		{
+			///*
+			//if (length == 0) return this.name;
+			string res = this.name;
+			res += "(len:" + length + ","
+					+ "number:" + number + ","
+					+ "fTune:" + fineTune + ","
+					//+ "transpose:"  + transpose + ","
+					+ "baseFreq:" + baseFrequency + ","
+					+ "vol:" + volume + ","
+					//+ "panning:" + panning + ","
+					+ "repStart:" + repeatStart + ","
+					+ "repLen:" + repeatLength + ","
+					+ "repStop:" + repeatStop + ")";
+
+			return res;
+			//*/
+			//return this.toShortString();
+		}
+
+		public string toShortString()
+		{
+			return this.name;
+		}
+
+		public void readInstrumentHeader(Stream stream)
+		{
+			name = ModuleUtils.readString0(stream, 22);
+			length = ModuleUtils.readWord(stream) * 2; // Length
+
+			fineTune = stream.ReadByte() & 0xF; // finetune Value>7 means negative 8..15= -8..-1
+												//fineTune = (fine > 7) ? fine - 16 : fine;
+
+			//baseFrequency = ModuleConst.getNoteFreq(24, fine);
+
+			int vol = stream.ReadByte(); // volume 64 is maximum
+			volume = (vol > 64) ? 1.0f : (float)vol / 64.0f;
+
+			//// Repeat start and stop
+			repeatStart = ModuleUtils.readWord(stream) * 2;
+			repeatLength = ModuleUtils.readWord(stream) * 2;
+			repeatStop = repeatStart + repeatLength;
+
+			if (length < 4) length = 0;
+			if (length > 0)
+			{
+				if (repeatStart > length) repeatStart = length;
+				if (repeatStop > length) repeatStop = length;
+				if (repeatStart >= repeatStop || repeatStop <= 8 || (repeatStop - repeatStart) <= 4)
+				{
+					repeatStart = repeatStop = 0;
+					loopType = 0;
+				}
+				if (repeatStart < repeatStop) loopType = ModuleConst.LOOP_ON;
+			}
+			else loopType = 0;
+			repeatLength = (int)(repeatStop - repeatStart);
+		}
+
+		public void readInstrumentData(Stream stream)
+		{
+			instrumentData.Clear();
+			if (length > 0)
+			{
+				for (int s = 0; s < length; s++)
+					instrumentData.Add((float)(ModuleUtils.readSignedByte(stream)) * 0.0078125f);  // 0.0078125f = 1/128
+			}
+		}
+
+		public void Clear()
+		{
+			instrumentData.Clear();
+		}
+	}
+	public class MODPatternChannel
+	{
+		public int period = 0;
+		public int noteIndex = 0;
+		public int instrument = 0;
+		public int effekt = 0;
+		public int effektOp = 0;
+		public int volumeEffekt = 0;
+		public int volumeEffektOp = 0;
+		public override string ToString()
+		{
+			string res = ModuleConst.getNoteNameToIndex(noteIndex);
+			res += ((period == 0 && noteIndex != 0) || (period != 0 && noteIndex == 0)) ? "!" : " ";
+			res += (instrument != 0) ? ModuleUtils.getAsHex(instrument, 2) : "..";
+			res += " ";
+			res += ((effekt != 0) || (effektOp != 0)) ? ModuleUtils.getAsHex(effekt, 1) + ModuleUtils.getAsHex(effektOp, 2) : "...";
+			return res;
+		}
+	}
+	public class MODPatternRow
+	{
+		public List<MODPatternChannel> patternChannels = new List<MODPatternChannel>();
+		public override string ToString()
+		{
+			string res = "";
+			for (int i = 0; i < patternChannels.Count; i++)
+				res += patternChannels[i].ToString() + '|';
+			return res;
+		}
+		public void Clear()
+		{
+			patternChannels.Clear();
+		}
+	}
+	public class MODPattern
+	{
+		public List<MODPatternRow> patternRows = new List<MODPatternRow>();
+		private MODPatternChannel createNewPatternChannel(Stream stream, int nSamples)
+		{
+			MODPatternChannel channel = new MODPatternChannel();
 			int b0 = stream.ReadByte();
 			int b1 = stream.ReadByte();
 			int b2 = stream.ReadByte();
@@ -29,13 +169,13 @@ namespace ModuleSystem
 			{
 				for (int row = 0; row < 64; row++)
 				{
-					ModulePatternRow pRow = new ModulePatternRow();
+					MODPatternRow pRow = new MODPatternRow();
 					for (int channel = 0; channel < 4; channel++)
 					{
 						pRow.patternChannels.Add(createNewPatternChannel(stream, nSamples));
 					}
 					for (int channel = 4; channel < 8; channel++) 
-						pRow.patternChannels.Add(new ModulePatternChannel());
+						pRow.patternChannels.Add(new MODPatternChannel());
 					
 					patternRows.Add(pRow);
 				}
@@ -47,7 +187,7 @@ namespace ModuleSystem
 			{
 				for (int row = 0; row < 64; row++)
 				{
-					ModulePatternRow pRow = new ModulePatternRow();
+					MODPatternRow pRow = new MODPatternRow();
 					for (int channel = 0; channel < nChannels; channel++)
 						pRow.patternChannels.Add(createNewPatternChannel(stream, nSamples));
 
@@ -55,431 +195,38 @@ namespace ModuleSystem
 				}
 			}
 		}
-	}
-	public class MODMixer : ModuleMixer
-    {
-		private bool noEffect(ModuleMixerChannel mc)				// no effect
+		public override string ToString()
 		{
-			return false;
-		}
-		private bool noteEffect0(ModuleMixerChannel mc)				// Arpeggio
-		{
-            if (mc.effectArg == 0) return false;
-            mc.arpeggioCount = 0;
-            mc.arpeggioIndex = mc.noteIndex;
-            mc.arpeggioX = mc.arpeggioIndex + mc.effectArgX;
-            mc.arpeggioY = mc.arpeggioIndex + mc.effectArgY;
-			mc.arpeggioPeriod0 = ModuleConst.getNotePeriod(mc.arpeggioIndex, /*mc.currentFineTune*/ 0);
-			mc.period = mc.arpeggioPeriod0;
-			mc.arpeggioPeriod1 = (mc.arpeggioX < 60) ? ModuleConst.getNotePeriod(mc.arpeggioX, /*mc.currentFineTune*/ 0) : mc.arpeggioPeriod0;
-			mc.arpeggioPeriod2 = (mc.arpeggioY < 60) ? ModuleConst.getNotePeriod(mc.arpeggioY, /*mc.currentFineTune*/ 0) : mc.arpeggioPeriod0;
-			return true;
-		}
-		private bool noteEffect1(ModuleMixerChannel mc)				// Slide up (Portamento Up)
-		{
-            mc.portamentoStart = mc.period;
-            mc.portamentoStep = -mc.effectArg;
-            return true;
-		}
-		private bool noteEffect2(ModuleMixerChannel mc)             // Slide down (Portamento Down)
-		{
-            mc.portamentoStart = mc.period;
-            mc.portamentoStep = mc.effectArg;
-            return true;
-		}
-		private bool noteEffect3(ModuleMixerChannel mc)             // Slide to note
-		{
-			if (mc.effectArg != 0)
+			string res = "\n";
+			if (patternRows[0] != null)
 			{
-				mc.lastPortamentoStep = mc.portamentoStep;
-				mc.portamentoStep = (mc.portamentoStart <= mc.portamentoEnd) ? mc.effectArg : -mc.effectArg;
+				string ln = "====";
+				for (int i = 0; i < patternRows[0].patternChannels.Count; i++)
+					ln += "===========";
+
+				res += ln + "\n";
+
+				for (int i = 0; i < patternRows.Count; i++)
+					res += ModuleUtils.getAsHex(i, 2) + ":|" + patternRows[i] + "\n";
+
+				res += ln + "\n";
 			}
-			else
-				mc.portamentoStep = mc.lastPortamentoStep;
-			
-            return true;
+			else res += "empty pattern\n";
+			return res;
 		}
-		private bool noteEffect4(ModuleMixerChannel mc)             // Vibrato
+		public void Clear()
 		{
-            mc.vibratoStart = mc.period;
-			mc.vibratoPeriod = mc.vibratoStart;
-            if (mc.effectArgX != 0 && mc.effectArgY != 0)
-            {
-				mc.lastVibratoFreq = mc.effectArgX;
-				mc.lastVibratoAmp = mc.effectArgY;
-                mc.vibratoFreq = mc.effectArgX;
-                mc.vibratoAmp = mc.effectArgY;
-				mc.vibratoCount = 0;
-			}
-			else
-            {
-				mc.vibratoFreq = mc.lastVibratoFreq;
-				mc.vibratoAmp = mc.lastVibratoAmp;
-				mc.vibratoCount = 0;
-			}
-			return true;
-		}
-		private bool noteEffect5(ModuleMixerChannel mc)             // Continue Slide to note + Volume slide
-		{
-			noteEffectA(mc);
-			return true;
-		}
-		private bool noteEffect6(ModuleMixerChannel mc)             // Continue Vibrato + Volume Slide
-		{
-            noteEffectA(mc);
-			mc.effectArgX = 0;
-			mc.effectArgY = 0;
-			noteEffect4(mc);
-            return true;
-		}
-		private bool noteEffect7(ModuleMixerChannel mc)             // Tremolo
-		{
-            mc.tremoloCount = (mc.tremoloType <= 0x03) ? 0 : mc.tremoloCount;
-            mc.tremoloStart = mc.channelVolume;
-			mc.tremoloFreq	= (mc.effectArgX != 0) ? mc.effectArgX : 0;
-			mc.tremoloAmp	= (mc.effectArgY != 0) ? mc.effectArgY : 0;
-            return true;
-		}
-		private bool noteEffect8(ModuleMixerChannel mc)             // Not Used
-		{
-			return true;
-		}
-		private bool noteEffect9(ModuleMixerChannel mc)             // Set Sample Offset
-		{
-            mc.instrumentPosition = mc.effectArg << 8;
-
-			if ((mc.instrumentPosition >= mc.instrumentLength) && (!mc.instrumentLoopStart) && (mc.loopType == ModuleConst.LOOP_ON))
-				mc.instrumentLoopStart = true;
-
-			if ((mc.instrumentPosition >= mc.instrumentRepeatStop) && (mc.instrumentLoopStart))
-				mc.instrumentPosition = mc.instrumentRepeatStart;
-
-			return true;
-		}
-		private bool noteEffectA(ModuleMixerChannel mc)             // Volume Slide
-		{
-			mc.volumeSlideStep = 0;
-			if (mc.effectArgX != 0)
-                mc.volumeSlideStep = (float)mc.effectArgX / 0x40;   // Volume Slide up
-			else if (mc.effectArgY != 0)
-				mc.volumeSlideStep = -(float)mc.effectArgY / 0x40;  // Volume Slide down
-			mc.channelVolume -= mc.volumeSlideStep;
-			return true;
-		}
-		private bool noteEffectB(ModuleMixerChannel mc)             // Position Jump
-		{
-            mc.patternNumToJump = mc.effectArgX * 16 + mc.effectArgY;
-            if (mc.patternNumToJump > 0x7F) mc.patternNumToJump = 0;
-
-            currentRow = 0;
-            track = module.arrangement[mc.patternNumToJump];
-            pattern = module.patterns[module.arrangement[track]];
-			return true;
-		}
-		private bool noteEffectC(ModuleMixerChannel mc)             // Set Volume
-		{
-            mc.channelVolume = (float)mc.effectArg / 0x40;
-            mc.channelVolume = (mc.channelVolume > 1.0f) ? 1.0f : mc.channelVolume;
-            return true;
-		}
-		private bool noteEffectD(ModuleMixerChannel mc)             // Pattern Break
-		{
-            mc.positionToJump = mc.effectArgX * 10 + mc.effectArgY;
-            if (mc.positionToJump > 0x3F) mc.positionToJump = 0;
-
-            track++;
-            pattern = module.patterns[module.arrangement[track]];
-            currentRow = mc.positionToJump;
-
-            return true;
-		}
-		private bool noteEffectE(ModuleMixerChannel mc)             // Extended Effects
-		{
-			effectsE[mc.effectArgX](mc);
-			effectsEUsed[mc.effectArgX] = true;
-			return true;
-		}
-		private bool noteEffectF(ModuleMixerChannel mc)             // SetSpeed
-		{
-            if ((mc.effectArg >= 0x20) && (mc.effectArg <= 0xFF))
-            {
-                BPM = mc.effectArg;
-                setBPM();
-            }
-            if ((mc.effectArg > 0) && (mc.effectArg <= 0x1F))
-                speed = mc.effectArg;
-
-			//System.Diagnostics.Debug.WriteLine("Set BPM/speed -> " + BPM + " : " + speed);
-
-			return true;
-		}
-		//----------------------------------------------------------------------------------------------
-		private bool tickEffect0(ModuleMixerChannel mc)
-		{
-            if (mc.effectArg == 0) return false;
-            int arpeggioPeriod = mc.arpeggioPeriod0;
-			arpeggioPeriod = (mc.arpeggioCount == 1) ? mc.arpeggioPeriod1 : arpeggioPeriod;
-			arpeggioPeriod = (mc.arpeggioCount == 2) ? mc.arpeggioPeriod2 : arpeggioPeriod;
-			//mc.period = arpeggioPeriod;
-			mc.periodInc = calcPeriodIncrement(arpeggioPeriod);
-			mc.arpeggioCount = (mc.arpeggioCount + 1) % 4;
-            return true;
-		}
-		private bool tickEffect1(ModuleMixerChannel mc)
-		{
-			mc.period = mc.portamentoStart;
-			mc.periodInc = calcPeriodIncrement(mc.period);
-
-			mc.portamentoStart += mc.portamentoStep;
-			mc.portamentoStart = (mc.portamentoStart <= ModuleConst.MIN_PERIOD) ? ModuleConst.MIN_PERIOD : mc.portamentoStart;
-			return true;
-		}
-		private bool tickEffect2(ModuleMixerChannel mc)
-		{
-			mc.period = mc.portamentoStart;
-			mc.periodInc = calcPeriodIncrement(mc.period);
-
-			mc.portamentoStart += mc.portamentoStep;
-			mc.portamentoStart = (mc.portamentoStart >= ModuleConst.MAX_PERIOD) ? ModuleConst.MAX_PERIOD : mc.portamentoStart;
-			return true;
-		}
-		private bool tickEffect3(ModuleMixerChannel mc)
-		{
-			
-			mc.period = mc.portamentoStart;
-            mc.periodInc = calcPeriodIncrement(mc.period);
-
-            mc.portamentoStart += mc.portamentoStep;
-			mc.portamentoStart = (mc.portamentoStart <= ModuleConst.MIN_PERIOD) ? ModuleConst.MIN_PERIOD : mc.portamentoStart;
-			mc.portamentoStart = (mc.portamentoStart >= ModuleConst.MAX_PERIOD) ? ModuleConst.MAX_PERIOD : mc.portamentoStart;
-
-            if (mc.portamentoStep < 0)
-                mc.portamentoStart = (mc.portamentoStart > mc.portamentoEnd) ? mc.portamentoStart : mc.portamentoEnd;
-            else
-                mc.portamentoStart = (mc.portamentoStart < mc.portamentoEnd) ? mc.portamentoStart : mc.portamentoEnd;
-
-            return true;
-		}
-		private bool tickEffect4(ModuleMixerChannel mc)
-		{
-			mc.vibratoAdd = (mc.vibratoType % 4 == 0) ? ModuleConst.ModSinusTable	[mc.vibratoCount] : mc.vibratoAdd;
-			mc.vibratoAdd = (mc.vibratoType % 4 == 1) ? ModuleConst.ModRampDownTable[mc.vibratoCount] : mc.vibratoAdd;
-			mc.vibratoAdd = (mc.vibratoType % 4 == 2) ? ModuleConst.ModSquareTable	[mc.vibratoCount] : mc.vibratoAdd;
-			mc.vibratoAdd = (mc.vibratoType % 4 == 3) ? ModuleConst.ModRandomTable	[mc.vibratoCount] : mc.vibratoAdd;
-
-			mc.periodInc     = calcPeriodIncrement(mc.vibratoPeriod);
-            mc.vibratoPeriod = mc.vibratoStart + (int)(mc.vibratoAdd * ((float)mc.vibratoAmp / 128.0f));
-			mc.vibratoPeriod = (mc.vibratoPeriod <= ModuleConst.MIN_PERIOD) ? ModuleConst.MIN_PERIOD : mc.vibratoPeriod;
-			mc.vibratoPeriod = (mc.vibratoPeriod >= ModuleConst.MAX_PERIOD) ? ModuleConst.MAX_PERIOD : mc.vibratoPeriod;
-            mc.vibratoCount  = (mc.vibratoCount + mc.vibratoFreq) & 0x3F;
-            return true;
-		}
-		private bool tickEffect5(ModuleMixerChannel mc)
-		{
-			tickEffectA(mc);
-			tickEffect3(mc);
-			return true;
-		}
-		private bool tickEffect6(ModuleMixerChannel mc)
-		{
-			tickEffectA(mc);
-			tickEffect4(mc);
-            return true;
-		}
-		private bool tickEffect7(ModuleMixerChannel mc)
-		{
-			mc.tremoloAdd = (mc.tremoloType % 4 == 0) ? ModuleConst.ModSinusTable	 [mc.tremoloCount] : mc.tremoloAdd;
-			mc.tremoloAdd = (mc.tremoloType % 4 == 1) ? ModuleConst.ModRampDownTable [mc.tremoloCount] : mc.tremoloAdd;
-			mc.tremoloAdd = (mc.tremoloType % 4 == 2) ? ModuleConst.ModSquareTable	 [mc.tremoloCount] : mc.tremoloAdd;
-			mc.tremoloAdd = (mc.tremoloType % 4 == 3) ? ModuleConst.ModRandomTable	 [mc.tremoloCount] : mc.tremoloAdd;
-
-            mc.channelVolume = mc.tremoloStart + ((float)mc.tremoloAdd / 64) * ((float)mc.tremoloAmp / 0x40);
-            mc.channelVolume = (mc.channelVolume < 0.0f) ? 0.0f : mc.channelVolume;
-            mc.channelVolume = (mc.channelVolume > 1.0f) ? 1.0f : mc.channelVolume;
-            mc.tremoloCount	 = (mc.tremoloCount + mc.tremoloFreq) & 0x3F;
-            return true;
-		}
-		private bool tickEffect8(ModuleMixerChannel mc)
-		{
-			return true;
-		}
-		private bool tickEffect9(ModuleMixerChannel mc)
-		{
-			return true;
-		}
-		private bool tickEffectA(ModuleMixerChannel mc)             // Volume Slide tick
-		{
-            mc.channelVolume += mc.volumeSlideStep;
-            mc.channelVolume = (mc.channelVolume < 0.0f) ? 0.0f : mc.channelVolume;
-            mc.channelVolume = (mc.channelVolume > 1.0f) ? 1.0f : mc.channelVolume;
-            return true;
-		}
-		private bool tickEffectB(ModuleMixerChannel mc)
-		{
-			return true;
-		}
-		private bool tickEffectC(ModuleMixerChannel mc)
-		{
-			return true;
-		}
-		private bool tickEffectD(ModuleMixerChannel mc)
-		{
-			return true;
-		}
-		private bool tickEffectE(ModuleMixerChannel mc)
-		{
-			return true;
-		}
-		private bool tickEffectF(ModuleMixerChannel mc)
-		{
-			return true;
-		}
-		//----------------------------------------------------------------------------------------------
-		private bool effectE0(ModuleMixerChannel mc)
-		{
-			return true;
-		}
-		private bool effectE1(ModuleMixerChannel mc)
-		{
-            mc.period -= mc.effectArgY;
-            mc.period = (mc.period < ModuleConst.MIN_PERIOD) ? ModuleConst.MIN_PERIOD : mc.period;
-            mc.periodInc = calcPeriodIncrement(mc.period);
-            return true;
-		}
-		private bool effectE2(ModuleMixerChannel mc)
-		{
-            mc.period += mc.effectArgY;
-            mc.period = (mc.period > ModuleConst.MAX_PERIOD) ? ModuleConst.MAX_PERIOD : mc.period;
-            mc.periodInc = calcPeriodIncrement(mc.period);
-            return true;
-		}
-		private bool effectE3(ModuleMixerChannel mc)
-		{
-			return true;
-		}
-		private bool effectE4(ModuleMixerChannel mc)
-		{
-			mc.vibratoType = mc.effectArgY & 0x7;
-			return true;
-		}
-		private bool effectE5(ModuleMixerChannel mc)
-		{
-			mc.currentFineTune = mc.effectArgY;
-			return true;
-		}
-		private bool effectE6(ModuleMixerChannel mc)
-		{
-			return true;
-		}
-		private bool effectE7(ModuleMixerChannel mc)
-		{
-			mc.tremoloType = mc.effectArgY & 0x7;			
-			return true;
-		}
-		private bool effectE8(ModuleMixerChannel mc)
-		{
-			return true;
-		}
-		private bool effectE9(ModuleMixerChannel mc)                // Retrigger Sample
-		{
-			return true;
-		}
-		private bool effectEA(ModuleMixerChannel mc)                // Fine Volume Slide Up
-		{
-			mc.effect = 0x0A;
-			mc.volumeSlideStep = (float)mc.effectArgY / 0x40;
-			return true;
-		}
-		private bool effectEB(ModuleMixerChannel mc)                // Fine Volume Slide Down
-		{
-			mc.effect = 0x0A;
-			mc.volumeSlideStep = -(float)mc.effectArgY / 0x40;
-			return true;
-		}
-		private bool effectEC(ModuleMixerChannel mc)                // Cut Sample
-		{
-			return true;
-		}
-		private bool effectED(ModuleMixerChannel mc)
-		{
-			return true;
-		}
-		private bool effectEE(ModuleMixerChannel mc)                // Delay
-		{
-            patternDelay = mc.effectArgY;
-            return true;
-		}
-		private bool effectEF(ModuleMixerChannel mc)
-		{
-			return true;
-		}
-		//----------------------------------------------------------------------------------------------
-		public MODMixer(Module module) : base(module)
-        {
-			/*
-			for (int i = 0; i < 16; i++)
-            {
-				noteEffects.Add(noEffect);
-				tickEffects.Add(noEffect);
-				effectsE.Add(noEffect);
-			}
-			return; // without effects;
-			*/
-
-			noteEffects.Add(noteEffect0);				// 0. ARPEGGIO
-			noteEffects.Add(noteEffect1);				// 1. PORTAMENTO UP 
-			noteEffects.Add(noteEffect2);				// 2. PORTAMENTO DOWN
-			noteEffects.Add(noteEffect3);				// 3. TONE PORTAMENTO
-			noteEffects.Add(noteEffect4);				// 4. VIBRATO
-			noteEffects.Add(noteEffect5);				// 5. TONE PORTAMENTO + VOLUME SLIDE
-			noteEffects.Add(noteEffect6);				// 6. VIBRATO + VOLUME SLIDE
-			noteEffects.Add(noteEffect7);				// 7. TREMOLO
-			noteEffects.Add(/*noteEffect8*/noEffect);   // 8. PAN
-			noteEffects.Add(/*noteEffect9*/noEffect);   // 9. SAMPLE OFFSET
-			noteEffects.Add(noteEffectA);				// A. VOLUME SLIDE
-			noteEffects.Add(/*noteEffectB*/noEffect);   // B. POSITION JUMP
-			noteEffects.Add(noteEffectC);				// C. SET VOLUME
-			noteEffects.Add(noteEffectD);				// D. PATTERN BREAK
-			noteEffects.Add(noteEffectE);				// E. EXTEND EFFECTS
-			noteEffects.Add(noteEffectF);				// F. SET SPEED
-
-			tickEffects.Add(tickEffect0);				// tick effect 0. ARPEGGIO
-			tickEffects.Add(tickEffect1);				// tick effect 1. PORTAMENTO UP 
-			tickEffects.Add(tickEffect2);				// tick effect 2. PORTAMENTO DOWN
-			tickEffects.Add(tickEffect3);				// tick effect 3. TONE PORTAMENTO
-			tickEffects.Add(tickEffect4);				// tick effect 4. VIBRATO
-			tickEffects.Add(tickEffect5);				// tick effect 5. TONE PORTAMENTO + VOLUME SLIDE
-			tickEffects.Add(tickEffect6);				// tick effect 6. VIBRATO + VOLUME SLIDE
-			tickEffects.Add(tickEffect7);				// tick effect 7. TREMOLO
-			tickEffects.Add(/*tickEffect8*/noEffect);	// tick effect 8. PAN
-			tickEffects.Add(/*tickEffect9*/noEffect);	// tick effect 9. SAMPLE OFFSET
-			tickEffects.Add(tickEffectA);				// tick effect A. VOLUME SLIDE
-			tickEffects.Add(/*tickEffectB*/noEffect);	// tick effect B. POSITION JUMP
-			tickEffects.Add(/*tickEffectC*/noEffect);	// tick effect C. SET VOLUME
-			tickEffects.Add(/*tickEffectD*/noEffect);	// tick effect D. PATTERN BREAK
-			tickEffects.Add(/*tickEffectE*/noEffect);	// tick effect E. EXTEND EFFECTS
-			tickEffects.Add(/*tickEffectF*/noEffect);	// tick effect F. SET SPEED
-
-			effectsE.Add(/*effectE0*/noEffect);         // E0. SET FILTER
-			effectsE.Add(/*effectE1*/noEffect);         // E1. FINE PORTAMENTO UP
-			effectsE.Add(/*effectE2*/noEffect);         // E2. FINE PORTAMENTO DOWN
-			effectsE.Add(/*effectE3*/noEffect);         // E3. GLISSANDO CONTROL
-			effectsE.Add(/*effectE4*/noEffect);         // E4. VIBRATO WAVEFORM 
-			effectsE.Add(/*effectE5*/noEffect);         // E5. SET FINETUNE
-			effectsE.Add(/*effectE6*/noEffect);         // E6. PATTERN LOOP
-			effectsE.Add(/*effectE7*/noEffect);         // E7. TREMOLO WAVEFORM
-			effectsE.Add(/*effectE8*/noEffect);         // E8. 16 POSITION PAN
-			effectsE.Add(/*effectE9*/noEffect);         // E9. RETRIG NOTE
-			effectsE.Add(effectEA);						// EA. FINE VOLUME SLIDE UP
-			effectsE.Add(effectEB);						// EB. FINE VOLUME SLIDE DOWN
-			effectsE.Add(/*effectEC*/noEffect);         // EC. CUT NOTE
-			effectsE.Add(/*effectED*/noEffect);         // ED. NOTE DELAY
-			effectsE.Add(/*effectEE*/noEffect);         // EE. PATTERN DELAY
-			effectsE.Add(/*effectEF*/noEffect);         // EF. INVERT LOOP
+			patternRows.Clear();
 		}
 	}
 	public class MODModule : Module
     {
+		public List<MODInstrument> instruments = new List<MODInstrument>();
+		public List<MODPattern> patterns = new List<MODPattern>();
+		public List<int> arrangement = new List<int>();
+
+		protected int bytesLeft = 0;
+
 		private MODMixer mixer		= null;
 		public MODModule():base("MOD format")
 		{
@@ -488,23 +235,23 @@ namespace ModuleSystem
 		private long getAllInstrumentsLength()
 		{
 			long allSamplesLength = 0;
-			foreach (ModuleInstrument inst in instruments) allSamplesLength += inst.length;
+			foreach (MODInstrument inst in instruments) allSamplesLength += inst.length;
 			return allSamplesLength;
 		}
 		public string InstrumentsToString()
 		{
 			string res = "Samples info : \n";
 			int i = 0;
-			foreach (ModuleInstrument inst in instruments)	res += ModuleUtils.getAsHex(i++, 2) + ':' + inst.ToString();
+			foreach (MODInstrument inst in instruments)	res += ModuleUtils.getAsHex(i++, 2) + ':' + inst.ToString();
 			return res;
 		}
 		private void readInstruments(Stream stream)
 		{
-			foreach (ModuleInstrument inst in instruments) inst.Clear();				
+			foreach (MODInstrument inst in instruments) inst.Clear();				
 			instruments.Clear();
 			for (int i = 0; i < nSamples; i++)
 			{
-				ModuleInstrument inst = new ModuleInstrument();
+				MODInstrument inst = new MODInstrument();
 				inst.number = i;
 				instruments.Add(inst);
 				inst.readInstrumentHeader(stream);
@@ -527,7 +274,7 @@ namespace ModuleSystem
 			if (nSamples > 15) headerLen += 4;  // Kennung
 						
 			int sampleLen = 0;
-			foreach (ModuleInstrument inst in instruments) sampleLen += 30 + inst.length;
+			foreach (MODInstrument inst in instruments) sampleLen += 30 + inst.length;
 			
 			int spaceForPattern = (int)(fileLength - headerLen - sampleLen);
 		
@@ -737,5 +484,736 @@ namespace ModuleSystem
 		{
 			mixer.Stop();
 		}
+	}
+	public class MODMixer : ModuleMixer
+	{
+		private MODModule module = null;
+		private MODPattern pattern = null;
+		private List<MODMixerChannel> mixChannels = new List<MODMixerChannel>();
+
+		private List<Func<MODMixerChannel, bool>> noteEffects = new List<Func<MODMixerChannel, bool>>();
+		private List<bool> noteEffectsUsed = new List<bool>();
+		private List<Func<MODMixerChannel, bool>> tickEffects = new List<Func<MODMixerChannel, bool>>();
+		private List<bool> tickEffectsUsed = new List<bool>();
+		private List<Func<MODMixerChannel, bool>> effectsE = new List<Func<MODMixerChannel, bool>>();
+		private List<bool> effectsEUsed = new List<bool>();
+
+		private WaveOutEvent waveOut = null;
+		private ModuleSoundStream waveStream = null;
+		private WaveFileReader waveReader = null;
+		private Task MixingTask = null;
+
+		#region Effects
+		private bool noEffect(MODMixerChannel mc)               // no effect
+		{
+			return false;
+		}
+		private bool noteEffect0(MODMixerChannel mc)                // Arpeggio
+		{
+			if (mc.effectArg == 0) return false;
+			mc.arpeggioCount = 0;
+			mc.arpeggioIndex = mc.noteIndex;
+			mc.arpeggioX = mc.arpeggioIndex + mc.effectArgX;
+			mc.arpeggioY = mc.arpeggioIndex + mc.effectArgY;
+			mc.arpeggioPeriod0 = ModuleConst.getNotePeriod(mc.arpeggioIndex, /*mc.currentFineTune*/ 0);
+			mc.period = mc.arpeggioPeriod0;
+			mc.arpeggioPeriod1 = (mc.arpeggioX < 60) ? ModuleConst.getNotePeriod(mc.arpeggioX, /*mc.currentFineTune*/ 0) : mc.arpeggioPeriod0;
+			mc.arpeggioPeriod2 = (mc.arpeggioY < 60) ? ModuleConst.getNotePeriod(mc.arpeggioY, /*mc.currentFineTune*/ 0) : mc.arpeggioPeriod0;
+			return true;
+		}
+		private bool noteEffect1(MODMixerChannel mc)                // Slide up (Portamento Up)
+		{
+			mc.portamentoStart = mc.period;
+			mc.portamentoStep = -mc.effectArg;
+			return true;
+		}
+		private bool noteEffect2(MODMixerChannel mc)             // Slide down (Portamento Down)
+		{
+			mc.portamentoStart = mc.period;
+			mc.portamentoStep = mc.effectArg;
+			return true;
+		}
+		private bool noteEffect3(MODMixerChannel mc)             // Slide to note
+		{
+			if (mc.effectArg != 0)
+			{
+				mc.lastPortamentoStep = mc.portamentoStep;
+				mc.portamentoStep = (mc.portamentoStart <= mc.portamentoEnd) ? mc.effectArg : -mc.effectArg;
+			}
+			else
+				mc.portamentoStep = mc.lastPortamentoStep;
+
+			return true;
+		}
+		private bool noteEffect4(MODMixerChannel mc)             // Vibrato
+		{
+			mc.vibratoStart = mc.period;
+			mc.vibratoPeriod = mc.vibratoStart;
+			if (mc.effectArgX != 0 && mc.effectArgY != 0)
+			{
+				mc.lastVibratoFreq = mc.effectArgX;
+				mc.lastVibratoAmp = mc.effectArgY;
+				mc.vibratoFreq = mc.effectArgX;
+				mc.vibratoAmp = mc.effectArgY;
+				mc.vibratoCount = 0;
+			}
+			else
+			{
+				mc.vibratoFreq = mc.lastVibratoFreq;
+				mc.vibratoAmp = mc.lastVibratoAmp;
+				mc.vibratoCount = 0;
+			}
+			return true;
+		}
+		private bool noteEffect5(MODMixerChannel mc)             // Continue Slide to note + Volume slide
+		{
+			noteEffectA(mc);
+			return true;
+		}
+		private bool noteEffect6(MODMixerChannel mc)             // Continue Vibrato + Volume Slide
+		{
+			noteEffectA(mc);
+			mc.effectArgX = 0;
+			mc.effectArgY = 0;
+			noteEffect4(mc);
+			return true;
+		}
+		private bool noteEffect7(MODMixerChannel mc)             // Tremolo
+		{
+			mc.tremoloCount = (mc.tremoloType <= 0x03) ? 0 : mc.tremoloCount;
+			mc.tremoloStart = mc.channelVolume;
+			mc.tremoloFreq = (mc.effectArgX != 0) ? mc.effectArgX : 0;
+			mc.tremoloAmp = (mc.effectArgY != 0) ? mc.effectArgY : 0;
+			return true;
+		}
+		private bool noteEffect8(MODMixerChannel mc)             // Not Used
+		{
+			return true;
+		}
+		private bool noteEffect9(MODMixerChannel mc)             // Set Sample Offset
+		{
+			mc.instrumentPosition = mc.effectArg << 8;
+
+			if ((mc.instrumentPosition >= mc.instrumentLength) && (!mc.instrumentLoopStart) && (mc.loopType == ModuleConst.LOOP_ON))
+				mc.instrumentLoopStart = true;
+
+			if ((mc.instrumentPosition >= mc.instrumentRepeatStop) && (mc.instrumentLoopStart))
+				mc.instrumentPosition = mc.instrumentRepeatStart;
+
+			return true;
+		}
+		private bool noteEffectA(MODMixerChannel mc)             // Volume Slide
+		{
+			mc.volumeSlideStep = 0;
+			if (mc.effectArgX != 0)
+				mc.volumeSlideStep = (float)mc.effectArgX / 0x40;   // Volume Slide up
+			else if (mc.effectArgY != 0)
+				mc.volumeSlideStep = -(float)mc.effectArgY / 0x40;  // Volume Slide down
+			mc.channelVolume -= mc.volumeSlideStep;
+			return true;
+		}
+		private bool noteEffectB(MODMixerChannel mc)             // Position Jump
+		{
+			mc.patternNumToJump = mc.effectArgX * 16 + mc.effectArgY;
+			if (mc.patternNumToJump > 0x7F) mc.patternNumToJump = 0;
+
+			currentRow = 0;
+			track = module.arrangement[mc.patternNumToJump];
+			pattern = module.patterns[module.arrangement[track]];
+			return true;
+		}
+		private bool noteEffectC(MODMixerChannel mc)             // Set Volume
+		{
+			mc.channelVolume = (float)mc.effectArg / 0x40;
+			mc.channelVolume = (mc.channelVolume > 1.0f) ? 1.0f : mc.channelVolume;
+			return true;
+		}
+		private bool noteEffectD(MODMixerChannel mc)             // Pattern Break
+		{
+			mc.positionToJump = mc.effectArgX * 10 + mc.effectArgY;
+			if (mc.positionToJump > 0x3F) mc.positionToJump = 0;
+
+			track++;
+			pattern = module.patterns[module.arrangement[track]];
+			currentRow = mc.positionToJump;
+
+			return true;
+		}
+		private bool noteEffectE(MODMixerChannel mc)             // Extended Effects
+		{
+			effectsE[mc.effectArgX](mc);
+			effectsEUsed[mc.effectArgX] = true;
+			return true;
+		}
+		private bool noteEffectF(MODMixerChannel mc)             // SetSpeed
+		{
+			if ((mc.effectArg >= 0x20) && (mc.effectArg <= 0xFF))
+			{
+				BPM = mc.effectArg;
+				setBPM();
+			}
+			if ((mc.effectArg > 0) && (mc.effectArg <= 0x1F))
+				speed = mc.effectArg;
+
+			//System.Diagnostics.Debug.WriteLine("Set BPM/speed -> " + BPM + " : " + speed);
+
+			return true;
+		}
+		//----------------------------------------------------------------------------------------------
+		private bool tickEffect0(MODMixerChannel mc)
+		{
+			if (mc.effectArg == 0) return false;
+			int arpeggioPeriod = mc.arpeggioPeriod0;
+			arpeggioPeriod = (mc.arpeggioCount == 1) ? mc.arpeggioPeriod1 : arpeggioPeriod;
+			arpeggioPeriod = (mc.arpeggioCount == 2) ? mc.arpeggioPeriod2 : arpeggioPeriod;
+			//mc.period = arpeggioPeriod;
+			mc.periodInc = calcPeriodIncrement(arpeggioPeriod);
+			mc.arpeggioCount = (mc.arpeggioCount + 1) % 4;
+			return true;
+		}
+		private bool tickEffect1(MODMixerChannel mc)
+		{
+			mc.period = mc.portamentoStart;
+			mc.periodInc = calcPeriodIncrement(mc.period);
+
+			mc.portamentoStart += mc.portamentoStep;
+			mc.portamentoStart = (mc.portamentoStart <= ModuleConst.MIN_PERIOD) ? ModuleConst.MIN_PERIOD : mc.portamentoStart;
+			return true;
+		}
+		private bool tickEffect2(MODMixerChannel mc)
+		{
+			mc.period = mc.portamentoStart;
+			mc.periodInc = calcPeriodIncrement(mc.period);
+
+			mc.portamentoStart += mc.portamentoStep;
+			mc.portamentoStart = (mc.portamentoStart >= ModuleConst.MAX_PERIOD) ? ModuleConst.MAX_PERIOD : mc.portamentoStart;
+			return true;
+		}
+		private bool tickEffect3(MODMixerChannel mc)
+		{
+
+			mc.period = mc.portamentoStart;
+			mc.periodInc = calcPeriodIncrement(mc.period);
+
+			mc.portamentoStart += mc.portamentoStep;
+			mc.portamentoStart = (mc.portamentoStart <= ModuleConst.MIN_PERIOD) ? ModuleConst.MIN_PERIOD : mc.portamentoStart;
+			mc.portamentoStart = (mc.portamentoStart >= ModuleConst.MAX_PERIOD) ? ModuleConst.MAX_PERIOD : mc.portamentoStart;
+
+			if (mc.portamentoStep < 0)
+				mc.portamentoStart = (mc.portamentoStart > mc.portamentoEnd) ? mc.portamentoStart : mc.portamentoEnd;
+			else
+				mc.portamentoStart = (mc.portamentoStart < mc.portamentoEnd) ? mc.portamentoStart : mc.portamentoEnd;
+
+			return true;
+		}
+		private bool tickEffect4(MODMixerChannel mc)
+		{
+			mc.vibratoAdd = (mc.vibratoType % 4 == 0) ? ModuleConst.ModSinusTable[mc.vibratoCount] : mc.vibratoAdd;
+			mc.vibratoAdd = (mc.vibratoType % 4 == 1) ? ModuleConst.ModRampDownTable[mc.vibratoCount] : mc.vibratoAdd;
+			mc.vibratoAdd = (mc.vibratoType % 4 == 2) ? ModuleConst.ModSquareTable[mc.vibratoCount] : mc.vibratoAdd;
+			mc.vibratoAdd = (mc.vibratoType % 4 == 3) ? ModuleConst.ModRandomTable[mc.vibratoCount] : mc.vibratoAdd;
+
+			mc.periodInc = calcPeriodIncrement(mc.vibratoPeriod);
+			mc.vibratoPeriod = mc.vibratoStart + (int)(mc.vibratoAdd * ((float)mc.vibratoAmp / 128.0f));
+			mc.vibratoPeriod = (mc.vibratoPeriod <= ModuleConst.MIN_PERIOD) ? ModuleConst.MIN_PERIOD : mc.vibratoPeriod;
+			mc.vibratoPeriod = (mc.vibratoPeriod >= ModuleConst.MAX_PERIOD) ? ModuleConst.MAX_PERIOD : mc.vibratoPeriod;
+			mc.vibratoCount = (mc.vibratoCount + mc.vibratoFreq) & 0x3F;
+			return true;
+		}
+		private bool tickEffect5(MODMixerChannel mc)
+		{
+			tickEffectA(mc);
+			tickEffect3(mc);
+			return true;
+		}
+		private bool tickEffect6(MODMixerChannel mc)
+		{
+			tickEffectA(mc);
+			tickEffect4(mc);
+			return true;
+		}
+		private bool tickEffect7(MODMixerChannel mc)
+		{
+			mc.tremoloAdd = (mc.tremoloType % 4 == 0) ? ModuleConst.ModSinusTable[mc.tremoloCount] : mc.tremoloAdd;
+			mc.tremoloAdd = (mc.tremoloType % 4 == 1) ? ModuleConst.ModRampDownTable[mc.tremoloCount] : mc.tremoloAdd;
+			mc.tremoloAdd = (mc.tremoloType % 4 == 2) ? ModuleConst.ModSquareTable[mc.tremoloCount] : mc.tremoloAdd;
+			mc.tremoloAdd = (mc.tremoloType % 4 == 3) ? ModuleConst.ModRandomTable[mc.tremoloCount] : mc.tremoloAdd;
+
+			mc.channelVolume = mc.tremoloStart + ((float)mc.tremoloAdd / 64) * ((float)mc.tremoloAmp / 0x40);
+			mc.channelVolume = (mc.channelVolume < 0.0f) ? 0.0f : mc.channelVolume;
+			mc.channelVolume = (mc.channelVolume > 1.0f) ? 1.0f : mc.channelVolume;
+			mc.tremoloCount = (mc.tremoloCount + mc.tremoloFreq) & 0x3F;
+			return true;
+		}
+		private bool tickEffect8(MODMixerChannel mc)
+		{
+			return true;
+		}
+		private bool tickEffect9(MODMixerChannel mc)
+		{
+			return true;
+		}
+		private bool tickEffectA(MODMixerChannel mc)             // Volume Slide tick
+		{
+			mc.channelVolume += mc.volumeSlideStep;
+			mc.channelVolume = (mc.channelVolume < 0.0f) ? 0.0f : mc.channelVolume;
+			mc.channelVolume = (mc.channelVolume > 1.0f) ? 1.0f : mc.channelVolume;
+			return true;
+		}
+		private bool tickEffectB(MODMixerChannel mc)
+		{
+			return true;
+		}
+		private bool tickEffectC(MODMixerChannel mc)
+		{
+			return true;
+		}
+		private bool tickEffectD(MODMixerChannel mc)
+		{
+			return true;
+		}
+		private bool tickEffectE(MODMixerChannel mc)
+		{
+			return true;
+		}
+		private bool tickEffectF(MODMixerChannel mc)
+		{
+			return true;
+		}
+		//----------------------------------------------------------------------------------------------
+		private bool effectE0(MODMixerChannel mc)
+		{
+			return true;
+		}
+		private bool effectE1(MODMixerChannel mc)
+		{
+			mc.period -= mc.effectArgY;
+			mc.period = (mc.period < ModuleConst.MIN_PERIOD) ? ModuleConst.MIN_PERIOD : mc.period;
+			mc.periodInc = calcPeriodIncrement(mc.period);
+			return true;
+		}
+		private bool effectE2(MODMixerChannel mc)
+		{
+			mc.period += mc.effectArgY;
+			mc.period = (mc.period > ModuleConst.MAX_PERIOD) ? ModuleConst.MAX_PERIOD : mc.period;
+			mc.periodInc = calcPeriodIncrement(mc.period);
+			return true;
+		}
+		private bool effectE3(MODMixerChannel mc)
+		{
+			return true;
+		}
+		private bool effectE4(MODMixerChannel mc)
+		{
+			mc.vibratoType = mc.effectArgY & 0x7;
+			return true;
+		}
+		private bool effectE5(MODMixerChannel mc)
+		{
+			mc.currentFineTune = mc.effectArgY;
+			return true;
+		}
+		private bool effectE6(MODMixerChannel mc)
+		{
+			return true;
+		}
+		private bool effectE7(MODMixerChannel mc)
+		{
+			mc.tremoloType = mc.effectArgY & 0x7;
+			return true;
+		}
+		private bool effectE8(MODMixerChannel mc)
+		{
+			return true;
+		}
+		private bool effectE9(MODMixerChannel mc)                // Retrigger Sample
+		{
+			return true;
+		}
+		private bool effectEA(MODMixerChannel mc)                // Fine Volume Slide Up
+		{
+			mc.effect = 0x0A;
+			mc.volumeSlideStep = (float)mc.effectArgY / 0x40;
+			return true;
+		}
+		private bool effectEB(MODMixerChannel mc)                // Fine Volume Slide Down
+		{
+			mc.effect = 0x0A;
+			mc.volumeSlideStep = -(float)mc.effectArgY / 0x40;
+			return true;
+		}
+		private bool effectEC(MODMixerChannel mc)                // Cut Sample
+		{
+			return true;
+		}
+		private bool effectED(MODMixerChannel mc)
+		{
+			return true;
+		}
+		private bool effectEE(MODMixerChannel mc)                // Delay
+		{
+			patternDelay = mc.effectArgY;
+			return true;
+		}
+		private bool effectEF(MODMixerChannel mc)
+		{
+			return true;
+		}
+		//----------------------------------------------------------------------------------------------
+		#endregion
+		public MODMixer(MODModule module)
+		{
+			this.module = module;
+			for (int i = 0; i < 16; i++)
+			{
+				noteEffectsUsed.Add(false);
+				tickEffectsUsed.Add(false);
+				effectsEUsed.Add(false);
+			}
+
+			/*
+			for (int i = 0; i < 16; i++)
+            {
+				noteEffects.Add(noEffect);
+				tickEffects.Add(noEffect);
+				effectsE.Add(noEffect);
+			}
+			return; // without effects;
+			*/
+
+			noteEffects.Add(noteEffect0);               // 0. ARPEGGIO
+			noteEffects.Add(noteEffect1);               // 1. PORTAMENTO UP 
+			noteEffects.Add(noteEffect2);               // 2. PORTAMENTO DOWN
+			noteEffects.Add(noteEffect3);               // 3. TONE PORTAMENTO
+			noteEffects.Add(noteEffect4);               // 4. VIBRATO
+			noteEffects.Add(noteEffect5);               // 5. TONE PORTAMENTO + VOLUME SLIDE
+			noteEffects.Add(noteEffect6);               // 6. VIBRATO + VOLUME SLIDE
+			noteEffects.Add(noteEffect7);               // 7. TREMOLO
+			noteEffects.Add(/*noteEffect8*/noEffect);   // 8. PAN
+			noteEffects.Add(/*noteEffect9*/noEffect);   // 9. SAMPLE OFFSET
+			noteEffects.Add(noteEffectA);               // A. VOLUME SLIDE
+			noteEffects.Add(/*noteEffectB*/noEffect);   // B. POSITION JUMP
+			noteEffects.Add(noteEffectC);               // C. SET VOLUME
+			noteEffects.Add(noteEffectD);               // D. PATTERN BREAK
+			noteEffects.Add(noteEffectE);               // E. EXTEND EFFECTS
+			noteEffects.Add(noteEffectF);               // F. SET SPEED
+
+			tickEffects.Add(tickEffect0);               // tick effect 0. ARPEGGIO
+			tickEffects.Add(tickEffect1);               // tick effect 1. PORTAMENTO UP 
+			tickEffects.Add(tickEffect2);               // tick effect 2. PORTAMENTO DOWN
+			tickEffects.Add(tickEffect3);               // tick effect 3. TONE PORTAMENTO
+			tickEffects.Add(tickEffect4);               // tick effect 4. VIBRATO
+			tickEffects.Add(tickEffect5);               // tick effect 5. TONE PORTAMENTO + VOLUME SLIDE
+			tickEffects.Add(tickEffect6);               // tick effect 6. VIBRATO + VOLUME SLIDE
+			tickEffects.Add(tickEffect7);               // tick effect 7. TREMOLO
+			tickEffects.Add(/*tickEffect8*/noEffect);   // tick effect 8. PAN
+			tickEffects.Add(/*tickEffect9*/noEffect);   // tick effect 9. SAMPLE OFFSET
+			tickEffects.Add(tickEffectA);               // tick effect A. VOLUME SLIDE
+			tickEffects.Add(/*tickEffectB*/noEffect);   // tick effect B. POSITION JUMP
+			tickEffects.Add(/*tickEffectC*/noEffect);   // tick effect C. SET VOLUME
+			tickEffects.Add(/*tickEffectD*/noEffect);   // tick effect D. PATTERN BREAK
+			tickEffects.Add(/*tickEffectE*/noEffect);   // tick effect E. EXTEND EFFECTS
+			tickEffects.Add(/*tickEffectF*/noEffect);   // tick effect F. SET SPEED
+
+			effectsE.Add(/*effectE0*/noEffect);         // E0. SET FILTER
+			effectsE.Add(/*effectE1*/noEffect);         // E1. FINE PORTAMENTO UP
+			effectsE.Add(/*effectE2*/noEffect);         // E2. FINE PORTAMENTO DOWN
+			effectsE.Add(/*effectE3*/noEffect);         // E3. GLISSANDO CONTROL
+			effectsE.Add(/*effectE4*/noEffect);         // E4. VIBRATO WAVEFORM 
+			effectsE.Add(/*effectE5*/noEffect);         // E5. SET FINETUNE
+			effectsE.Add(/*effectE6*/noEffect);         // E6. PATTERN LOOP
+			effectsE.Add(/*effectE7*/noEffect);         // E7. TREMOLO WAVEFORM
+			effectsE.Add(/*effectE8*/noEffect);         // E8. 16 POSITION PAN
+			effectsE.Add(/*effectE9*/noEffect);         // E9. RETRIG NOTE
+			effectsE.Add(effectEA);                     // EA. FINE VOLUME SLIDE UP
+			effectsE.Add(effectEB);                     // EB. FINE VOLUME SLIDE DOWN
+			effectsE.Add(/*effectEC*/noEffect);         // EC. CUT NOTE
+			effectsE.Add(/*effectED*/noEffect);         // ED. NOTE DELAY
+			effectsE.Add(/*effectEE*/noEffect);         // EE. PATTERN DELAY
+			effectsE.Add(/*effectEF*/noEffect);         // EF. INVERT LOOP
+		}
+		private void resetChannelInstrument(MODMixerChannel mc)
+		{
+			mc.instrumentPosition = 2;
+			mc.instrumentLength = mc.instrument.length;
+			mc.loopType = mc.instrument.loopType;
+			mc.instrumentLoopStart = false;
+			mc.instrumentRepeatStart = mc.instrument.repeatStart;
+			mc.instrumentRepeatStop = mc.instrument.repeatStop;
+			mc.currentFineTune = mc.instrument.fineTune;
+
+			mc.vibratoCount = 0;
+			mc.tremoloCount = 0;
+			mc.arpeggioCount = 0;
+		}
+		private void updateNote()
+		{
+			patternDelay = 0;
+			for (int ch = 0; ch < module.nChannels; ch++)
+			{
+				MODMixerChannel mc = mixChannels[ch];
+				MODPatternChannel pe = pattern.patternRows[currentRow].patternChannels[ch];
+
+				mc.patternChannel = pe;
+				mc.effect = pe.effekt;
+				mc.effectArg = pe.effektOp;
+				mc.effectArgX = (mc.effectArg & 0xF0) >> 4;
+				mc.effectArgY = (mc.effectArg & 0x0F);
+
+				if (pe.instrument > 0 && pe.period > 0)
+				{
+					mc.lastInstrument = mc.instrument;
+					mc.instrument = module.instruments[pe.instrument - 1];
+					resetChannelInstrument(mc);
+					mc.channelVolume = mc.instrument.volume;
+					mc.portamentoStart = mc.period;
+					mc.noteIndex = ModuleConst.getNoteIndexForPeriod(pe.period);
+					mc.period = ModuleConst.getNotePeriod(mc.noteIndex, mc.currentFineTune);
+					mc.portamentoEnd = mc.period;
+					mc.periodInc = calcPeriodIncrement(mc.period);
+				}
+
+				if (pe.instrument > 0 && pe.period == 0 && module.instruments[pe.instrument - 1] != mc.lastInstrument)
+				{
+					mc.lastInstrument = mc.instrument;
+					mc.instrument = module.instruments[pe.instrument - 1];
+					resetChannelInstrument(mc);
+					mc.channelVolume = mc.instrument.volume;
+				}
+
+				if (pe.instrument > 0 && pe.period == 0 && module.instruments[pe.instrument - 1] == mc.lastInstrument)
+					mc.channelVolume = mc.instrument.volume;
+
+				if (pe.instrument == 0 && pe.period > 0)
+				{
+					mc.portamentoStart = mc.period;
+					mc.noteIndex = ModuleConst.getNoteIndexForPeriod(pe.period);
+					mc.period = ModuleConst.getNotePeriod(mc.noteIndex, mc.currentFineTune);
+					mc.portamentoEnd = mc.period;
+					mc.periodInc = calcPeriodIncrement(mc.period);
+					resetChannelInstrument(mc);
+				}
+			}
+
+			currentRow++;
+			if (currentRow >= maxPatternRows)
+			{
+				pattEnd = true;
+				currentRow = 0;
+				track++;
+				if (track >= module.songLength)
+				{
+					moduleEnd = true;
+					//if (!mixLoop) played = true;
+					//else
+					//{
+					//    track = 0;
+					//    pattern = module.patterns[module.arrangement[track]];
+					//}
+				}
+				else pattern = module.patterns[module.arrangement[track]];
+			}
+		}
+		private void updateNoteEffects()
+		{
+			for (int ch = 0; ch < module.nChannels; ch++)
+			{
+				noteEffects[mixChannels[ch].effect](mixChannels[ch]);
+				if (mixChannels[ch].effect == 0 && mixChannels[ch].effectArg != 0) noteEffectsUsed[0] = true;
+				if (mixChannels[ch].effect != 0) noteEffectsUsed[mixChannels[ch].effect] = true;
+			}
+		}
+		private void updateTickEffects()
+		{
+			for (int ch = 0; ch < module.nChannels; ch++)
+			{
+				tickEffects[mixChannels[ch].effect](mixChannels[ch]);
+				if (mixChannels[ch].effect == 0 && mixChannels[ch].effectArg != 0) tickEffectsUsed[0] = true;
+				if (mixChannels[ch].effect != 0) tickEffectsUsed[mixChannels[ch].effect] = true;
+			}
+		}
+		private void setBPM()
+		{
+			mixerPosition = 0;
+			samplesPerTick = calcSamplesPerTick(BPM);
+		}
+		private void updateBPM()
+		{
+			if (counter >= ((1 + patternDelay) * speed))
+			{
+				counter = 0;
+				updateNote();
+				updateNoteEffects();
+				updateTickEffects();
+			}
+			else updateTickEffects();
+			counter++;
+		}
+
+		private void initModule(int startPosition = 0)
+		{
+			track = startPosition;
+			counter = 0;
+			patternDelay = 0;
+			samplesPerTick = 0;
+			mixerPosition = 0;
+			currentRow = 0;
+			pattern = module.patterns[module.arrangement[track]];
+			BPM = module.BPM;
+			speed = module.tempo;
+			moduleEnd = false;
+
+			mixChannels.Clear();
+			for (int ch = 0; ch < module.nChannels; ch++)
+			{
+				MODMixerChannel mc = new MODMixerChannel();
+				mc.instrument = module.instruments[0];
+				mc.lastInstrument = module.instruments[0];
+				mixChannels.Add(mc);
+			}
+		}
+		public void playModule(int startPosition = 0)
+		{
+			playing = false;
+			initModule(startPosition);
+
+			waveOut?.Stop();
+			MixingTask?.Wait();
+
+			waveReader?.Dispose();
+			waveStream?.Dispose();
+			waveOut?.Dispose();
+			MixingTask?.Dispose();
+
+			waveStream = new ModuleSoundStream(ModuleConst.SOUNDFREQUENCY);
+			waveOut = new WaveOutEvent();
+			mixData();
+
+			playing = true;
+			waveReader = new WaveFileReader(waveStream);
+			waveOut.Init(waveReader);
+			waveOut.Play();
+
+			MixingTask = Task.Factory.StartNew(() =>
+			{
+				while ((!moduleEnd) && playing)
+				{
+					mixData();
+					while (waveStream.QueueLength > ModuleConst.MIX_WAIT && playing)
+					{
+						Thread.Sleep(100);
+					}
+					//DebugMes("Play position - " + waveOut.GetPosition() + " queue length - " + waveStream.QueueLength);
+				}
+				while (waveStream.QueueLength > 0 && playing)
+				{
+					Thread.Sleep(100);
+					//DebugMes("Play position - " + waveOut.GetPosition() + " queue length - " + waveStream.QueueLength);
+				}
+			});
+		}
+		public void Stop()
+		{
+			waveOut.Stop();
+			playing = false;
+		}
+		private float getSampleValueSimple(MODMixerChannel mc)
+		{
+			return mc.instrument.instrumentData[(int)mc.instrumentPosition] * mc.channelVolume;
+		}
+		private float getSampleValueLinear(MODMixerChannel mc)
+		{
+			int posInt = (int)mc.instrumentPosition;
+			float posReal = mc.instrumentPosition - posInt;
+			float a1 = mc.instrument.instrumentData[posInt];
+			if ((posInt + 1) >= mc.instrumentLength) return a1 * mc.channelVolume;
+			float a2 = mc.instrument.instrumentData[posInt + 1];
+			return (a1 + (a2 - a1) * posReal) * mc.channelVolume;
+		}
+		private float getSampleValueSpline(MODMixerChannel mc)
+		{
+			int posInt = (int)mc.instrumentPosition;
+			float posReal = mc.instrumentPosition - posInt;
+			float a2 = mc.instrument.instrumentData[posInt];
+			if (((posInt - 1) < 0) || ((posInt + 2) >= mc.instrumentLength)) return a2 * mc.channelVolume;
+			float a1 = mc.instrument.instrumentData[posInt - 1];
+			float a3 = mc.instrument.instrumentData[posInt + 1];
+			float a4 = mc.instrument.instrumentData[posInt + 2];
+
+			float b0 = a1 + a2 + a2 + a2 + a2 + a3;
+			float b1 = -a1 + a3;
+			float b2 = a1 - a2 - a2 + a3;
+			float b3 = -a1 + a2 + a2 + a2 - a3 - a3 - a3 + a4;
+			return (((b3 * posReal * 0.1666666f + b2 * 0.5f) * posReal + b1 * 0.5f) * posReal + b0 * 0.1666666f) * mc.channelVolume;
+		}
+		private void mixData()
+		{
+			var startTime = System.Diagnostics.Stopwatch.StartNew();
+			//System.Diagnostics.Debug.WriteLine("Start mixing -> ...");
+
+			//*
+			string ms = " channels " + module.nChannels + " ";
+			for (int pos = 0; pos < mixBufferLen; pos++)
+			{
+				float mixValueR = 0;
+				float mixValueL = 0;
+				float mixValue = 0;
+				for (int ch = 0; ch < module.nChannels; ch++)
+				{
+					MODMixerChannel mc = mixChannels[ch];
+					//if (ch != 1) mc.muted = true;
+					if (!mc.muted)
+					{
+						if ((mc.instrumentPosition >= mc.instrumentLength) && (!mc.instrumentLoopStart) && (mc.loopType == ModuleConst.LOOP_ON))
+							mc.instrumentLoopStart = true;
+
+						if ((mc.instrumentPosition >= mc.instrumentRepeatStop) && (mc.instrumentLoopStart))
+							mc.instrumentPosition = mc.instrumentRepeatStart;
+
+						if (mc.instrumentPosition < mc.instrumentLength)
+						{
+							mixValue += getSampleValueSimple(mc);
+							//mixValue += getSampleValueLinear(mc);
+							//mixValue += getSampleValueSpline(mc);
+							//mixValueL += (((ch & 0x03) == 0) || ((ch & 0x03) == 3)) ? mixValue : 0;
+							//mixValueR += (((ch & 0x03) == 1) || ((ch & 0x03) == 2)) ? mixValue : 0;
+						}
+					}
+					mc.instrumentPosition += mc.periodInc;
+				}
+				mixValue /= module.nChannels;
+				//mixValue = (mixValue < -1.0f) ? -1.0f : mixValue;
+				//mixValue = (mixValue > 1.0f) ? 1.0f : mixValue;
+
+				//mixValueL /= module.nChannels * 2.0f;
+				//mixValueL = (mixValueL < -1.0f) ? -1.0f : mixValueL;
+				//mixValueL = (mixValueL >  1.0f) ?  1.0f : mixValueL;
+
+				//mixValueR /= module.nChannels * 2.0f;
+				//mixValueR = (mixValueR < -1.0f) ? -1.0f : mixValueR;
+				//mixValueR = (mixValueR >  1.0f) ?  1.0f : mixValueR;
+
+				waveStream.Write((short)(mixValue * ModuleConst.SOUND_AMP));
+				//waveStream.Write((short)((mixValueR * 0.75f + mixValueL * 0.25f) * ModuleConst.SOUND_AMP));
+				//waveStream.Write((short)((mixValueL * 0.75f + mixValueR * 0.25f) * ModuleConst.SOUND_AMP));
+
+				mixerPosition++;
+				if (mixerPosition >= samplesPerTick)
+				{
+					setBPM();
+					updateBPM();
+				}
+			}
+			//*/
+			//startTime.Stop();
+			//var resultTime = startTime.Elapsed;
+			//string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:000}",
+			//                                    resultTime.Hours,
+			//                                    resultTime.Minutes,
+			//                                    resultTime.Seconds,
+			//                                    resultTime.Milliseconds);
+			//System.Diagnostics.Debug.WriteLine("Mixing time = " + elapsedTime);
+		}
+
 	}
 }

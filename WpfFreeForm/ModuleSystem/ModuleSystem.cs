@@ -1,9 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Threading;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using NAudio.Wave;
 
 namespace ModuleSystem
 {
@@ -276,8 +272,6 @@ namespace ModuleSystem
     {
         public bool muted = false;
 
-        public ModulePatternChannel patternChannel = null;
-
         public int effect = 0;
         public int effectArg = 0;
         public int effectArgX = 0;
@@ -325,8 +319,6 @@ namespace ModuleSystem
         public int noteIndex = 0;
         public bool isNote = false;
 
-        public ModuleInstrument instrument = null;
-        public ModuleInstrument lastInstrument = null;
         public int currentFineTune = 0;
         public int lastFineTune = 0;
         public int period = 0;
@@ -364,41 +356,11 @@ namespace ModuleSystem
         protected int maxPatternRows = 64;
         protected int samplesPerTick = 0;
         protected int mixerPosition = 0;
-        protected int mixerTime = 0;
-        protected ModulePattern pattern = null;
         protected int currentRow = 0;
         protected int track = 0;
         protected bool mixLoop = true;
-        protected bool mixStart = false;
-        protected bool soundSystemReady = false;
-        protected bool mixingReady = false;
-
-        protected Module module = null;
-        protected List<ModuleMixerChannel> mixChannels = new List<ModuleMixerChannel>();
-
-        protected List<Func<ModuleMixerChannel, bool>> noteEffects = new List<Func<ModuleMixerChannel, bool>>();
-        protected List<bool> noteEffectsUsed = new List<bool>();
-
-        protected List<Func<ModuleMixerChannel, bool>> tickEffects = new List<Func<ModuleMixerChannel, bool>>();
-        protected List<bool> tickEffectsUsed = new List<bool>();
-
-        protected List<Func<ModuleMixerChannel, bool>> effectsE = new List<Func<ModuleMixerChannel, bool>>();
-        protected List<bool> effectsEUsed = new List<bool>();
-
-        private WaveOutEvent waveOut = null;
-        private ModuleSoundStream waveStream = null;
-        private WaveFileReader waveReader = null;
-        private Task MixingTask = null;
-
-        public ModuleMixer(Module module)
+        public ModuleMixer()
         {
-            this.module = module;
-            for (int i = 0; i < 16; i++)
-            {
-                noteEffectsUsed.Add(false);
-                tickEffectsUsed.Add(false);
-                effectsEUsed.Add(false);
-            }
         }
         public int calcSamplesPerTick(int currentBPM)
         {
@@ -407,128 +369,6 @@ namespace ModuleSystem
         public float calcPeriodIncrement(int period)
         {
             return (period != 0) ? (float)ModuleConst.AMIGA_FREQUENCY / (period * ModuleConst.SOUNDFREQUENCY) : 1.0f;
-        }
-        public virtual void resetChannelInstrument(ModuleMixerChannel mc)
-        {
-            mc.instrumentPosition = 2;
-            mc.instrumentLength = mc.instrument.length;
-            mc.loopType = mc.instrument.loopType;
-            mc.instrumentLoopStart = false;
-            mc.instrumentRepeatStart = mc.instrument.repeatStart;
-            mc.instrumentRepeatStop = mc.instrument.repeatStop;
-            mc.currentFineTune = mc.instrument.fineTune;
-
-            mc.vibratoCount = 0;
-            mc.tremoloCount = 0;
-            mc.arpeggioCount = 0;
-        }
-        public virtual void updateNote()
-        {
-            patternDelay = 0;
-            for (int ch = 0; ch < module.nChannels; ch++)
-            {
-                ModuleMixerChannel mc = mixChannels[ch];
-                ModulePatternChannel pe = pattern.patternRows[currentRow].patternChannels[ch];
-
-                mc.patternChannel = pe;
-
-                mc.effect = pe.effekt;
-                mc.effectArg = pe.effektOp;
-                mc.effectArgX = (mc.effectArg & 0xF0) >> 4;
-                mc.effectArgY = (mc.effectArg & 0x0F);
-
-
-                if (pe.instrument > 0 && pe.period > 0)
-                {
-                    mc.lastInstrument = mc.instrument;
-                    mc.instrument = module.instruments[pe.instrument - 1];
-                    resetChannelInstrument(mc);
-                    mc.channelVolume = mc.instrument.volume;
-
-                    mc.portamentoStart = mc.period;
-                    mc.noteIndex = ModuleConst.getNoteIndexForPeriod(pe.period);
-                    mc.period = ModuleConst.getNotePeriod(mc.noteIndex, mc.currentFineTune);
-                    mc.portamentoEnd = mc.period;
-                    mc.periodInc = calcPeriodIncrement(mc.period);
-                }
-
-                if (pe.instrument > 0 && pe.period == 0 && module.instruments[pe.instrument - 1] != mc.lastInstrument)
-                {
-                    mc.lastInstrument = mc.instrument;
-                    mc.instrument = module.instruments[pe.instrument - 1];
-                    resetChannelInstrument(mc);
-                    mc.channelVolume = mc.instrument.volume;
-                }
-
-                if (pe.instrument > 0 && pe.period == 0 && module.instruments[pe.instrument - 1] == mc.lastInstrument)
-                {
-                    mc.channelVolume = mc.instrument.volume;
-                }
-
-                if (pe.instrument == 0 && pe.period > 0)
-                {
-                    mc.portamentoStart = mc.period;
-                    mc.noteIndex = ModuleConst.getNoteIndexForPeriod(pe.period);
-                    mc.period = ModuleConst.getNotePeriod(mc.noteIndex, mc.currentFineTune);
-                    mc.portamentoEnd = mc.period;
-                    mc.periodInc = calcPeriodIncrement(mc.period);
-                    resetChannelInstrument(mc);
-                }
-            }
-
-            currentRow++;
-            if (currentRow >= maxPatternRows)
-            {
-                pattEnd = true;
-                currentRow = 0;
-                track++;
-                if (track >= module.songLength)
-                {
-                    moduleEnd = true;
-                    //if (!mixLoop) played = true;
-                    //else
-                    //{
-                    //    track = 0;
-                    //    pattern = module.patterns[module.arrangement[track]];
-                    //}
-                }
-                else pattern = module.patterns[module.arrangement[track]];
-            }
-        }
-        public virtual void updateNoteEffects()
-        {
-            for (int ch = 0; ch < module.nChannels; ch++)
-            {
-                noteEffects[mixChannels[ch].effect](mixChannels[ch]);
-                if (mixChannels[ch].effect == 0 && mixChannels[ch].effectArg != 0) noteEffectsUsed[0] = true;
-                if (mixChannels[ch].effect != 0) noteEffectsUsed[mixChannels[ch].effect] = true;
-            }
-        }
-        public virtual void updateTickEffects()
-        {
-            for (int ch = 0; ch < module.nChannels; ch++)
-            {
-                tickEffects[mixChannels[ch].effect](mixChannels[ch]);
-                if (mixChannels[ch].effect == 0 && mixChannels[ch].effectArg != 0) tickEffectsUsed[0] = true;
-                if (mixChannels[ch].effect != 0) tickEffectsUsed[mixChannels[ch].effect] = true;
-            }
-        }
-        public virtual void setBPM()
-        {
-            mixerPosition = 0;
-            samplesPerTick = calcSamplesPerTick(BPM);
-        }
-        public virtual void updateBPM()
-        {
-            if (counter >= ((1 + patternDelay) * speed))
-            {
-                counter = 0;
-                updateNote();
-                updateNoteEffects();
-                updateTickEffects();
-            }
-            else updateTickEffects();
-            counter++;
         }
         //public void mixModule(int startPosition = 0)
         //{
@@ -594,331 +434,11 @@ namespace ModuleSystem
         //    mixingBuffer.BaseStream.Seek(0, SeekOrigin.Begin);
         //    mixingBuffer.BaseStream.CopyTo(soundBuffer.BaseStream);
         //}
-        public void initModule(int startPosition = 0)
-        {
-            track = startPosition;
-            counter = 0;
-            patternDelay = 0;
-            samplesPerTick = 0;
-            mixerPosition = 0;
-            mixerTime = 0;
-            currentRow = 0;
-            pattern = module.patterns[module.arrangement[track]];
-            BPM = module.BPM;
-            speed = module.tempo;
-            moduleEnd = false;
-
-            mixChannels.Clear();
-            for (int ch = 0; ch < module.nChannels; ch++)
-            {
-                ModuleMixerChannel mc = new ModuleMixerChannel();
-                mc.instrument = module.instruments[0];
-                mc.lastInstrument = module.instruments[0];
-                mixChannels.Add(mc);
-            }
-        }
-        public virtual void playModule(int startPosition = 0)
-        {
-            playing = false;
-            initModule(startPosition);
-
-            waveOut?.Stop();
-            MixingTask?.Wait();
-
-            waveReader?.Dispose();
-            waveStream?.Dispose();
-            waveOut?.Dispose();
-            MixingTask?.Dispose();
-
-            waveStream = new ModuleSoundStream(ModuleConst.SOUNDFREQUENCY);
-            waveOut = new WaveOutEvent();
-            mixData();
-
-            playing = true;
-            waveReader = new WaveFileReader(waveStream);
-            waveOut.Init(waveReader);
-            waveOut.Play();
-
-            MixingTask = Task.Factory.StartNew(() =>
-            {
-                while ((!moduleEnd) && playing)
-                {
-                    mixData();
-                    while (waveStream.QueueLength > ModuleConst.MIX_WAIT && playing)
-                    {
-                        Thread.Sleep(100);
-                    }
-                    DebugMes("Play position - " + waveOut.GetPosition() + " queue length - " + waveStream.QueueLength);
-                }
-                while (waveStream.QueueLength > 0 && playing)
-                {
-                    Thread.Sleep(100);
-                    DebugMes("Play position - " + waveOut.GetPosition() + " queue length - " + waveStream.QueueLength);
-                }
-            });
-        }
-        public virtual void Stop()
-        {
-            waveOut.Stop();
-            playing = false;
-        }
-        private float getSampleValueSimple(ModuleMixerChannel mc)
-        {
-            return mc.instrument.instrumentData[(int)mc.instrumentPosition] * mc.channelVolume;
-        }
-        private float getSampleValueLinear(ModuleMixerChannel mc)
-        {
-            int posInt = (int)mc.instrumentPosition;
-            float posReal = mc.instrumentPosition - posInt;
-            float a1 = mc.instrument.instrumentData[posInt];
-            if ((posInt + 1) >= mc.instrumentLength) return a1 * mc.channelVolume;
-            float a2 = mc.instrument.instrumentData[posInt + 1];
-            return (a1 + (a2 - a1) * posReal) * mc.channelVolume;
-        }
-        private float getSampleValueSpline(ModuleMixerChannel mc)
-        {
-            int posInt = (int)mc.instrumentPosition;
-            float posReal = mc.instrumentPosition - posInt;
-            float a2 = mc.instrument.instrumentData[posInt];
-            if (((posInt - 1) < 0) || ((posInt + 2) >= mc.instrumentLength)) return a2 * mc.channelVolume;
-            float a1 = mc.instrument.instrumentData[posInt - 1];
-            float a3 = mc.instrument.instrumentData[posInt + 1];
-            float a4 = mc.instrument.instrumentData[posInt + 2];
-
-            float b0 = a1 + a2 + a2 + a2 + a2 + a3;
-            float b1 = -a1 + a3;
-            float b2 = a1 - a2 - a2 + a3;
-            float b3 = -a1 + a2 + a2 + a2 - a3 - a3 - a3 + a4;
-            return (((b3 * posReal * 0.1666666f + b2 * 0.5f) * posReal + b1 * 0.5f) * posReal + b0 * 0.1666666f) * mc.channelVolume;
-        }
-        private void mixData()
-        {
-            var startTime = System.Diagnostics.Stopwatch.StartNew();
-            //System.Diagnostics.Debug.WriteLine("Start mixing -> ...");
-
-            //*
-            string ms = " channels " + module.nChannels + " ";
-            for (int pos = 0; pos < mixBufferLen; pos++)
-            {
-                float mixValueR = 0;
-                float mixValueL = 0;
-                float mixValue = 0;
-                for (int ch = 0; ch < module.nChannels; ch++)
-                {
-                    ModuleMixerChannel mc = mixChannels[ch];
-                    //if (ch != 1) mc.muted = true;
-                    if (!mc.muted)
-                    {
-                        if ((mc.instrumentPosition >= mc.instrumentLength) && (!mc.instrumentLoopStart) && (mc.loopType == ModuleConst.LOOP_ON))
-                            mc.instrumentLoopStart = true;
-
-                        if ((mc.instrumentPosition >= mc.instrumentRepeatStop) && (mc.instrumentLoopStart))
-                            mc.instrumentPosition = mc.instrumentRepeatStart;
-
-                        if (mc.instrumentPosition < mc.instrumentLength)
-                        {
-                            mixValue += getSampleValueSimple(mc);
-                            //mixValue += getSampleValueLinear(mc);
-                            //mixValue += getSampleValueSpline(mc);
-                            //mixValueL += (((ch & 0x03) == 0) || ((ch & 0x03) == 3)) ? mixValue : 0;
-                            //mixValueR += (((ch & 0x03) == 1) || ((ch & 0x03) == 2)) ? mixValue : 0;
-                        }
-                    }
-                    mc.instrumentPosition += mc.periodInc;
-                }
-                mixValue /= module.nChannels;
-                //mixValue = (mixValue < -1.0f) ? -1.0f : mixValue;
-                //mixValue = (mixValue > 1.0f) ? 1.0f : mixValue;
-
-                //mixValueL /= module.nChannels * 2.0f;
-                //mixValueL = (mixValueL < -1.0f) ? -1.0f : mixValueL;
-                //mixValueL = (mixValueL >  1.0f) ?  1.0f : mixValueL;
-
-                //mixValueR /= module.nChannels * 2.0f;
-                //mixValueR = (mixValueR < -1.0f) ? -1.0f : mixValueR;
-                //mixValueR = (mixValueR >  1.0f) ?  1.0f : mixValueR;
-
-                waveStream.Write((short)(mixValue * ModuleConst.SOUND_AMP));
-                //mixingBuffer.Write((short)(32767 * (mixValueR * 0.75f + mixValueL * 0.25f)));
-                //mixingBuffer.Write((short)(32767 * (mixValueL * 0.75f + mixValueR * 0.25f)));
-
-                mixerPosition++;
-                if (mixerPosition >= samplesPerTick)
-                {
-                    setBPM();
-                    updateBPM();
-                }
-            }
-            //*/
-            //startTime.Stop();
-            //var resultTime = startTime.Elapsed;
-            //string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:000}",
-            //                                    resultTime.Hours,
-            //                                    resultTime.Minutes,
-            //                                    resultTime.Seconds,
-            //                                    resultTime.Milliseconds);
-            //System.Diagnostics.Debug.WriteLine("Mixing time = " + elapsedTime);
-        }
         private void DebugMes(string mes)
         {
 #if DEBUG
             System.Diagnostics.Debug.WriteLine(mes);
 #endif
-        }
-    }
-    public class ModuleInstrument
-    {
-        public string name = "";    // Name of the sample
-        public int number = 0;    // Number of the sample
-        public int length = 0;  // full length (already *2 --> Mod-Fomat)
-        public int fineTune = 0;    // Finetuning -8..+8
-        public float volume = 0;    // Basisvolume
-        public float repeatStart = 0; // # of the loop start (already *2 --> Mod-Fomat)
-        public float repeatStop = 0;  // # of the loop end   (already *2 --> Mod-Fomat)
-        public int repeatLength = 0;    // length of the loop
-        public int loopType = 0;    // 0: no Looping, 1: normal, 2: pingpong, 3: backwards
-        public int baseFrequency = 0;   // BaseFrequency
-
-        public List<float> instrumentData = new List<float>();    // The sampledata, already converted to 16 bit (always)
-                                                                  // 8Bit: -128 to 127; 16Bit: -32768..0..+32767
-        public ModuleInstrument()
-        {
-        }
-
-        public override string ToString()
-        {
-            ///*
-            //if (length == 0) return this.name;
-            string res = this.name;
-            res += "(len:" + length + ","
-                    + "number:" + number + ","
-                    + "fTune:" + fineTune + ","
-                    //+ "transpose:"  + transpose + ","
-                    + "baseFreq:" + baseFrequency + ","
-                    + "vol:" + volume + ","
-                    //+ "panning:" + panning + ","
-                    + "repStart:" + repeatStart + ","
-                    + "repLen:" + repeatLength + ","
-                    + "repStop:" + repeatStop + ")";
-
-            return res;
-            //*/
-            //return this.toShortString();
-        }
-
-        public string toShortString()
-        {
-            return this.name;
-        }
-
-        public void readInstrumentHeader(Stream stream)
-        {
-            name = ModuleUtils.readString0(stream, 22);
-            length = ModuleUtils.readWord(stream) * 2; // Length
-
-            fineTune = stream.ReadByte() & 0xF; // finetune Value>7 means negative 8..15= -8..-1
-            //fineTune = (fine > 7) ? fine - 16 : fine;
-
-            //baseFrequency = ModuleConst.getNoteFreq(24, fine);
-
-            int vol = stream.ReadByte(); // volume 64 is maximum
-            volume = (vol > 64) ? 1.0f : (float)vol / 64.0f;
-
-            //// Repeat start and stop
-            repeatStart = ModuleUtils.readWord(stream) * 2;
-            repeatLength = ModuleUtils.readWord(stream) * 2;
-            repeatStop = repeatStart + repeatLength;
-
-            if (length < 4) length = 0;
-            if (length > 0)
-            {
-                if (repeatStart > length) repeatStart = length;
-                if (repeatStop > length) repeatStop = length;
-                if (repeatStart >= repeatStop || repeatStop <= 8 || (repeatStop - repeatStart) <= 4)
-                {
-                    repeatStart = repeatStop = 0;
-                    loopType = 0;
-                }
-                if (repeatStart < repeatStop) loopType = ModuleConst.LOOP_ON;
-            }
-            else loopType = 0;
-            repeatLength = (int)(repeatStop - repeatStart);
-        }
-
-        public void readInstrumentData(Stream stream)
-        {
-            instrumentData.Clear();
-            if (length > 0)
-            {
-                for (int s = 0; s < length; s++)
-                    instrumentData.Add((float)(ModuleUtils.readSignedByte(stream)) * 0.0078125f);  // 0.0078125f = 1/128
-            }
-        }
-
-        public void Clear()
-        {
-            instrumentData.Clear();
-        }
-    }
-    public class ModulePatternChannel
-    {
-        public int period = 0;
-        public int noteIndex = 0;
-        public int instrument = 0;
-        public int effekt = 0;
-        public int effektOp = 0;
-        public int volumeEffekt = 0;
-        public int volumeEffektOp = 0;
-        public override string ToString()
-        {
-            string res = ModuleConst.getNoteNameToIndex(noteIndex);
-            res += ((period == 0 && noteIndex != 0) || (period != 0 && noteIndex == 0)) ? "!" : " ";
-            res += (instrument != 0) ? ModuleUtils.getAsHex(instrument, 2) : "..";
-            res += " ";
-            res += ((effekt != 0) || (effektOp != 0)) ? ModuleUtils.getAsHex(effekt, 1) + ModuleUtils.getAsHex(effektOp, 2) : "...";
-            return res;
-        }
-    }
-    public class ModulePatternRow
-    {
-        public List<ModulePatternChannel> patternChannels = new List<ModulePatternChannel>();
-        public override string ToString()
-        {
-            string res = "";
-            for (int i = 0; i < patternChannels.Count; i++)
-                res += patternChannels[i].ToString() + '|';
-            return res;
-        }
-        public void Clear()
-        {
-            patternChannels.Clear();
-        }
-    }
-    public class ModulePattern
-    {
-        public List<ModulePatternRow> patternRows = new List<ModulePatternRow>();
-        public override string ToString()
-        {
-            string res = "\n";
-            if (patternRows[0] != null)
-            {
-                string ln = "====";
-                for (int i = 0; i < patternRows[0].patternChannels.Count; i++)
-                    ln += "===========";
-
-                res += ln + "\n";
-
-                for (int i = 0; i < patternRows.Count; i++)
-                    res += ModuleUtils.getAsHex(i, 2) + ":|" + patternRows[i] + "\n";
-
-                res += ln + "\n";
-            }
-            else res += "empty pattern\n";
-            return res;
-        }
-        public void Clear()
-        {
-            patternRows.Clear();
         }
     }
     public class Module : IDisposable
@@ -940,11 +460,6 @@ namespace ModuleSystem
         public int songLength = 0;
         public float baseVolume = 0.0f;
         public bool isAmigaLike = true;
-        public List<ModuleInstrument> instruments = new List<ModuleInstrument>();
-        public List<ModulePattern> patterns = new List<ModulePattern>();
-        public List<int> arrangement = new List<int>();
-
-        protected int bytesLeft = 0;
         public float Position
         {
             get

@@ -15,11 +15,11 @@ namespace ModuleSystem
         private AutoResetEvent dataAvailableSignaler = new AutoResetEvent(false);
         private int preloadSize = 2000;
 
-        public ModuleSoundStream(int sampleRate)
+        public ModuleSoundStream(int sampleRate, bool stereo = false)
         {
             position = 0;
             sampleQueue = new ConcurrentQueue<byte>();
-            WriteWavHeader(sampleRate);
+            WriteWavHeader(sampleRate, stereo);
         }
 
         /// <summary>
@@ -34,18 +34,10 @@ namespace ModuleSystem
             if (sampleQueue.Count >= preloadSize)
                 dataAvailableSignaler.Set();
         }
-
-        /// <summary>
-        /// Count of unread bytes in buffer
-        /// </summary>
         public int Buffered
         {
             get { return sampleQueue.Count; }
         }
-
-        /// <summary>
-        /// Read
-        /// </summary>
         public override int Read(byte[] buffer, int offset, int count)
         {
             if (position >= Length)
@@ -71,7 +63,7 @@ namespace ModuleSystem
         /// <summary>
         /// Write wave header in start of wave stream with sampleRate frequency
         /// </summary>
-        private void WriteWavHeader(int sampleRate)
+        private void WriteWavHeader(int sampleRate, bool stereo = false)
         {
             MemoryStream stream = new MemoryStream();
             BinaryWriter writer = new BinaryWriter(stream);
@@ -85,7 +77,7 @@ namespace ModuleSystem
             ushort audioFormat = 1;
             ushort numChannels = 1;  // Mono - 1, Stereo - 2
             ushort bitsPerSample = 16;
-            ushort blockAlign = (ushort)(numChannels * (bitsPerSample / 8));
+            ushort blockAlign = (ushort)(stereo ? 2 : 1 /*numChannels*/ * (bitsPerSample / 8));
             //uint sampleRate = (uint)ModuleConst.SOUNDFREQUENCY;
             uint byteRate = (uint)sampleRate * blockAlign;
             uint waveSize = 4;
@@ -98,7 +90,7 @@ namespace ModuleSystem
             writer.Write(subchunk1Id);
             writer.Write(subchunk1Size);
             writer.Write(audioFormat);
-            writer.Write(numChannels);
+            writer.Write((ushort)(stereo ? 2 : 1)); //numChannels
             writer.Write((uint)sampleRate);
             writer.Write(byteRate);
             writer.Write(blockAlign);
