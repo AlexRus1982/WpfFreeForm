@@ -69,7 +69,7 @@ namespace ModuleSystem
 
         #region WAV header
         /// <summary>
-        /// Prepair wave header with sampleRate frequency
+        /// Write wave header in start of wave stream with sampleRate frequency
         /// </summary>
         private void WriteWavHeader(int sampleRate)
         {
@@ -109,6 +109,8 @@ namespace ModuleSystem
             byte[] headerBytes = stream.ToArray();
             for (int i = 0; i < headerBytes.Length; i++)
                 sampleQueue.Enqueue(headerBytes[i]);
+            
+            position += headerBytes.Length;
 
             writer.Dispose();
             stream.Dispose();
@@ -144,7 +146,7 @@ namespace ModuleSystem
         public override long Position
         {
             get { return position; }
-            set { position = value; }
+            set { ; }
         }
 
         public long QueueLength

@@ -388,6 +388,7 @@ namespace ModuleSystem
         private WaveOutEvent waveOut = null;
         private ModuleSoundStream waveStream = null;
         private WaveFileReader waveReader = null;
+        private Task MixingTask = null;
 
         public ModuleMixer(Module module)
         {
@@ -596,10 +597,16 @@ namespace ModuleSystem
         public void initModule(int startPosition = 0)
         {
             track = startPosition;
-
+            counter = 0;
+            patternDelay = 0;
+            samplesPerTick = 0;
+            mixerPosition = 0;
+            mixerTime = 0;
+            currentRow = 0;
             pattern = module.patterns[module.arrangement[track]];
             BPM = module.BPM;
             speed = module.tempo;
+            moduleEnd = false;
 
             mixChannels.Clear();
             for (int ch = 0; ch < module.nChannels; ch++)
@@ -609,44 +616,44 @@ namespace ModuleSystem
                 mc.lastInstrument = module.instruments[0];
                 mixChannels.Add(mc);
             }
-
-            moduleEnd = false;
         }
         public virtual void playModule(int startPosition = 0)
         {
+            playing = false;
             initModule(startPosition);
+
             waveOut?.Stop();
+            MixingTask?.Wait();
+
             waveReader?.Dispose();
             waveStream?.Dispose();
             waveOut?.Dispose();
+            MixingTask?.Dispose();
 
             waveStream = new ModuleSoundStream(ModuleConst.SOUNDFREQUENCY);
             waveOut = new WaveOutEvent();
             mixData();
 
             playing = true;
-            ThreadPool.QueueUserWorkItem((_) =>
-            {
-                waveReader = new WaveFileReader(waveStream);
-                waveOut.Init(waveReader);
-                waveOut.Play();
-            });
+            waveReader = new WaveFileReader(waveStream);
+            waveOut.Init(waveReader);
+            waveOut.Play();
 
-            ThreadPool.QueueUserWorkItem((_) =>
+            MixingTask = Task.Factory.StartNew(() =>
             {
                 while ((!moduleEnd) && playing)
                 {
                     mixData();
-                    while (waveStream.QueueLength > ModuleConst.MIX_WAIT)
+                    while (waveStream.QueueLength > ModuleConst.MIX_WAIT && playing)
                     {
                         Thread.Sleep(100);
                     }
-                    //DebugMes("Play position - " + waveOut.GetPosition() + " queue length - " + waveStream.QueueLength);
+                    DebugMes("Play position - " + waveOut.GetPosition() + " queue length - " + waveStream.QueueLength);
                 }
-                while (waveStream.QueueLength > 0)
+                while (waveStream.QueueLength > 0 && playing)
                 {
                     Thread.Sleep(100);
-                    //DebugMes("Play position - " + waveOut.GetPosition() + " queue length - " + waveStream.QueueLength);
+                    DebugMes("Play position - " + waveOut.GetPosition() + " queue length - " + waveStream.QueueLength);
                 }
             });
         }
@@ -743,14 +750,14 @@ namespace ModuleSystem
                 }
             }
             //*/
-            startTime.Stop();
-            var resultTime = startTime.Elapsed;
-            string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:000}",
-                                                resultTime.Hours,
-                                                resultTime.Minutes,
-                                                resultTime.Seconds,
-                                                resultTime.Milliseconds);
-            System.Diagnostics.Debug.WriteLine("Mixing time = " + elapsedTime);
+            //startTime.Stop();
+            //var resultTime = startTime.Elapsed;
+            //string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:000}",
+            //                                    resultTime.Hours,
+            //                                    resultTime.Minutes,
+            //                                    resultTime.Seconds,
+            //                                    resultTime.Milliseconds);
+            //System.Diagnostics.Debug.WriteLine("Mixing time = " + elapsedTime);
         }
         private void DebugMes(string mes)
         {
