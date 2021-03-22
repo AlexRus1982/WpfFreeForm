@@ -12,8 +12,8 @@ namespace ModuleSystem
     {
         private long position;
         private ConcurrentQueue<byte> sampleQueue;
-        private AutoResetEvent dataAvailableSignaler = new AutoResetEvent(false);
-        private int preloadSize = 2000;
+        private AutoResetEvent dataAvailableSignaler    = new AutoResetEvent(false);
+        private int preloadSize                         = 2000;
 
         public ModuleSoundStream(int sampleRate, bool stereo = false)
         {

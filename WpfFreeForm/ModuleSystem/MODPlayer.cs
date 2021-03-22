@@ -11,28 +11,27 @@ namespace ModuleSystem
 	public class MODMixerChannel : ModuleMixerChannel
 	{
 		public MODPatternChannel patternChannel = null;
-		public MODInstrument instrument = null;
-		public MODInstrument lastInstrument = null;
+		public MODInstrument instrument			= null;
+		public MODInstrument lastInstrument		= null;
 	}
 	public class MODInstrument
 	{
-		public string name = "";    // Name of the sample
-		public int number = 0;    // Number of the sample
-		public int length = 0;  // full length (already *2 --> Mod-Fomat)
-		public int fineTune = 0;    // Finetuning -8..+8
-		public float volume = 0;    // Basisvolume
-		public float repeatStart = 0; // # of the loop start (already *2 --> Mod-Fomat)
-		public float repeatStop = 0;  // # of the loop end   (already *2 --> Mod-Fomat)
-		public int repeatLength = 0;    // length of the loop
-		public int loopType = 0;    // 0: no Looping, 1: normal, 2: pingpong, 3: backwards
-		public int baseFrequency = 0;   // BaseFrequency
+		public string name					= "";	// Name of the sample
+		public int number					= 0;	// Number of the sample
+		public int length					= 0;	// full length (already *2 --> Mod-Fomat)
+		public int fineTune					= 0;	// Finetuning -8..+8
+		public float volume					= 0;	// Basisvolume
+		public float repeatStart			= 0;	// # of the loop start (already *2 --> Mod-Fomat)
+		public float repeatStop				= 0;	// # of the loop end   (already *2 --> Mod-Fomat)
+		public int repeatLength				= 0;	// length of the loop
+		public int loopType					= 0;	// 0: no Looping, 1: normal, 2: pingpong, 3: backwards
+		public int baseFrequency			= 0;	// BaseFrequency
 
-		public List<float> instrumentData = new List<float>();    // The sampledata, already converted to 16 bit (always)
-																  // 8Bit: -128 to 127; 16Bit: -32768..0..+32767
+		public List<float> instrumentData	= new List<float>();	// The sampledata, already converted to 16 bit (always)
+																	// 8Bit: -128 to 127; 16Bit: -32768..0..+32767
 		public MODInstrument()
 		{
 		}
-
 		public override string ToString()
 		{
 			///*
@@ -53,12 +52,10 @@ namespace ModuleSystem
 			//*/
 			//return this.toShortString();
 		}
-
 		public string toShortString()
 		{
 			return this.name;
 		}
-
 		public void readInstrumentHeader(Stream stream)
 		{
 			name = ModuleUtils.readString0(stream, 22);
@@ -77,22 +74,31 @@ namespace ModuleSystem
 			repeatLength = ModuleUtils.readWord(stream) * 2;
 			repeatStop = repeatStart + repeatLength;
 
-			if (length < 4) length = 0;
+			if (length < 4) 
+				length = 0;
+
 			if (length > 0)
 			{
-				if (repeatStart > length) repeatStart = length;
-				if (repeatStop > length) repeatStop = length;
+				if (repeatStart > length)
+					repeatStart = length;
+
+				if (repeatStop > length)
+					repeatStop = length;
+
 				if (repeatStart >= repeatStop || repeatStop <= 8 || (repeatStop - repeatStart) <= 4)
 				{
 					repeatStart = repeatStop = 0;
 					loopType = 0;
 				}
-				if (repeatStart < repeatStop) loopType = ModuleConst.LOOP_ON;
+
+				if (repeatStart < repeatStop)
+					loopType = ModuleConst.LOOP_ON;
 			}
-			else loopType = 0;
+			else
+				loopType = 0;
+			
 			repeatLength = (int)(repeatStop - repeatStart);
 		}
-
 		public void readInstrumentData(Stream stream)
 		{
 			instrumentData.Clear();
@@ -102,7 +108,6 @@ namespace ModuleSystem
 					instrumentData.Add((float)(ModuleUtils.readSignedByte(stream)) * 0.0078125f);  // 0.0078125f = 1/128
 			}
 		}
-
 		public void Clear()
 		{
 			instrumentData.Clear();
@@ -110,13 +115,13 @@ namespace ModuleSystem
 	}
 	public class MODPatternChannel
 	{
-		public int period = 0;
-		public int noteIndex = 0;
-		public int instrument = 0;
-		public int effekt = 0;
-		public int effektOp = 0;
-		public int volumeEffekt = 0;
-		public int volumeEffektOp = 0;
+		public int period			= 0;
+		public int noteIndex		= 0;
+		public int instrument		= 0;
+		public int effekt			= 0;
+		public int effektOp			= 0;
+		public int volumeEffekt		= 0;
+		public int volumeEffektOp	= 0;
 		public override string ToString()
 		{
 			string res = ModuleConst.getNoteNameToIndex(noteIndex);
@@ -221,13 +226,12 @@ namespace ModuleSystem
 	}
 	public class MODModule : Module
     {
-		public List<MODInstrument> instruments = new List<MODInstrument>();
-		public List<MODPattern> patterns = new List<MODPattern>();
-		public List<int> arrangement = new List<int>();
+		public List<MODInstrument> instruments	= new List<MODInstrument>();
+		public List<MODPattern> patterns		= new List<MODPattern>();
+		public List<int> arrangement			= new List<int>();
 
-		protected int bytesLeft = 0;
-
-		private MODMixer mixer		= null;
+		private int bytesLeft					= 0;
+		private MODMixer mixer					= null;
 		public MODModule():base("MOD format")
 		{
 			DebugMes("MOD Sound Module created");			
@@ -242,7 +246,8 @@ namespace ModuleSystem
 		{
 			string res = "Samples info : \n";
 			int i = 0;
-			foreach (MODInstrument inst in instruments)	res += ModuleUtils.getAsHex(i++, 2) + ':' + inst.ToString();
+			foreach (MODInstrument inst in instruments)	
+				res += ModuleUtils.getAsHex(i++, 2) + ':' + inst.ToString() + "\n";
 			return res;
 		}
 		private void readInstruments(Stream stream)
@@ -255,8 +260,8 @@ namespace ModuleSystem
 				inst.number = i;
 				instruments.Add(inst);
 				inst.readInstrumentHeader(stream);
-				DebugMes(inst.ToString());
 			}
+			//DebugMes(InstrumentsToString());
 		}
 		private void readArrangement(Stream stream)
 		{
@@ -274,7 +279,8 @@ namespace ModuleSystem
 			if (nSamples > 15) headerLen += 4;  // Kennung
 						
 			int sampleLen = 0;
-			foreach (MODInstrument inst in instruments) sampleLen += 30 + inst.length;
+			foreach (MODInstrument inst in instruments) 
+				sampleLen += 30 + inst.length;
 			
 			int spaceForPattern = (int)(fileLength - headerLen - sampleLen);
 		
@@ -306,7 +312,6 @@ namespace ModuleSystem
 			int bytesPerPattern = 256 * nChannels; //64*4*nChannels
 			nPatterns = (int)(spaceForPattern / bytesPerPattern);
 			int bytesLeft = (int)(spaceForPattern % bytesPerPattern);
-
 			if (bytesLeft > 0) // It does not fit!
 			{
 				if (maxPatternNumber > nPatterns)
@@ -324,15 +329,17 @@ namespace ModuleSystem
 					nPatterns = maxPatternNumber;
 				}
 				return bytesLeft;
-			}
-			
+			}			
 			return 0;
 		}
 		private void readPatterns(Stream stream)
 		{
-			foreach (MODPattern pat in patterns) pat.Clear();
+			foreach (MODPattern pat in patterns)
+				pat.Clear();
+
 			patterns.Clear();
-			if (nSamples > 15) stream.Seek(4, SeekOrigin.Current);	// skip ModID, if not NoiseTracker:
+			if (nSamples > 15)
+				stream.Seek(4, SeekOrigin.Current);	// skip ModID, if not NoiseTracker:
 																	
 			bytesLeft = calcPattCount();
             for (int i = 0; i < nPatterns; i++)						// Read the patterndata
@@ -340,7 +347,7 @@ namespace ModuleSystem
                 MODPattern pattern = new MODPattern();
                 pattern.readPatternData(stream, modID, nChannels, nSamples);
                 patterns.Add(pattern);
-				DebugMes("Patern : " + i + pattern.ToString());
+				//DebugMes("Patern : " + i + pattern.ToString());
             }
         }
 		private void readInstrumentsData(Stream stream)
@@ -350,10 +357,10 @@ namespace ModuleSystem
 			{
 				long calcSamplePos = getAllInstrumentsLength();
 				calcSamplePos = fileLength - calcSamplePos;
-				// do this only, if needed!
-				if (calcSamplePos < stream.Position) stream.Seek(calcSamplePos, SeekOrigin.Begin);
+				if (calcSamplePos < stream.Position) stream.Seek(calcSamplePos, SeekOrigin.Begin); // do this only, if needed!
 			}
-			for (int i = 0; i < nSamples; i++) instruments[i].readInstrumentData(stream);
+			for (int i = 0; i < nSamples; i++) 
+				instruments[i].readInstrumentData(stream);
 		}
 		public override bool readFromStream(Stream stream)
 		{
@@ -362,7 +369,9 @@ namespace ModuleSystem
 			BPM = 125;
 			tempo = 6;
 
-			if (!checkFormat(stream)) return false;
+			if (!checkFormat(stream)) 
+				return false;
+
 			setModType();
 
 			stream.Seek(0, SeekOrigin.Begin);
@@ -373,13 +382,7 @@ namespace ModuleSystem
 			readPatterns(stream);			// read patterns
 			readInstrumentsData(stream);    // read samples data
 
-			//mixer = new cMODMixer(this);
-			//mixer.mixInfo.BPM = BPMSpeed;
-			//mixer.mixInfo.speed = tempo;
-			
 			mixer = new MODMixer(this);
-			//mixer.mixModule();
-			//mixer.mixPattern(1);
 			return true;
 		}
 		private void setModType()
@@ -487,21 +490,21 @@ namespace ModuleSystem
 	}
 	public class MODMixer : ModuleMixer
 	{
-		private MODModule module = null;
-		private MODPattern pattern = null;
-		private List<MODMixerChannel> mixChannels = new List<MODMixerChannel>();
+		private MODModule module								= null;
+		private MODPattern pattern								= null;
+		private List<MODMixerChannel> mixChannels				= new List<MODMixerChannel>();
 
-		private List<Func<MODMixerChannel, bool>> noteEffects = new List<Func<MODMixerChannel, bool>>();
-		private List<bool> noteEffectsUsed = new List<bool>();
-		private List<Func<MODMixerChannel, bool>> tickEffects = new List<Func<MODMixerChannel, bool>>();
-		private List<bool> tickEffectsUsed = new List<bool>();
-		private List<Func<MODMixerChannel, bool>> effectsE = new List<Func<MODMixerChannel, bool>>();
-		private List<bool> effectsEUsed = new List<bool>();
+		private List<Func<MODMixerChannel, bool>> noteEffects	= new List<Func<MODMixerChannel, bool>>();
+		private List<bool> noteEffectsUsed						= new List<bool>();
+		private List<Func<MODMixerChannel, bool>> tickEffects	= new List<Func<MODMixerChannel, bool>>();
+		private List<bool> tickEffectsUsed						= new List<bool>();
+		private List<Func<MODMixerChannel, bool>> effectsE		= new List<Func<MODMixerChannel, bool>>();
+		private List<bool> effectsEUsed							= new List<bool>();
 
-		private WaveOutEvent waveOut = null;
-		private ModuleSoundStream waveStream = null;
-		private WaveFileReader waveReader = null;
-		private Task MixingTask = null;
+		private WaveOutEvent waveOut							= null;
+		private ModuleSoundStream waveStream					= null;
+		private WaveFileReader waveReader						= null;
+		private Task MixingTask									= null;
 
 		#region Effects
 		private bool noEffect(MODMixerChannel mc)               // no effect
@@ -1019,8 +1022,10 @@ namespace ModuleSystem
 			for (int ch = 0; ch < module.nChannels; ch++)
 			{
 				noteEffects[mixChannels[ch].effect](mixChannels[ch]);
-				if (mixChannels[ch].effect == 0 && mixChannels[ch].effectArg != 0) noteEffectsUsed[0] = true;
-				if (mixChannels[ch].effect != 0) noteEffectsUsed[mixChannels[ch].effect] = true;
+				if (mixChannels[ch].effect == 0 && mixChannels[ch].effectArg != 0)
+					noteEffectsUsed[0] = true;
+				if (mixChannels[ch].effect != 0)
+					noteEffectsUsed[mixChannels[ch].effect] = true;
 			}
 		}
 		private void updateTickEffects()
@@ -1028,8 +1033,10 @@ namespace ModuleSystem
 			for (int ch = 0; ch < module.nChannels; ch++)
 			{
 				tickEffects[mixChannels[ch].effect](mixChannels[ch]);
-				if (mixChannels[ch].effect == 0 && mixChannels[ch].effectArg != 0) tickEffectsUsed[0] = true;
-				if (mixChannels[ch].effect != 0) tickEffectsUsed[mixChannels[ch].effect] = true;
+				if (mixChannels[ch].effect == 0 && mixChannels[ch].effectArg != 0)
+					tickEffectsUsed[0] = true;
+				if (mixChannels[ch].effect != 0)
+					tickEffectsUsed[mixChannels[ch].effect] = true;
 			}
 		}
 		private void setBPM()
@@ -1049,7 +1056,6 @@ namespace ModuleSystem
 			else updateTickEffects();
 			counter++;
 		}
-
 		private void initModule(int startPosition = 0)
 		{
 			track = startPosition;
@@ -1114,8 +1120,8 @@ namespace ModuleSystem
 		}
 		public void Stop()
 		{
-			waveOut.Stop();
 			playing = false;
+			waveOut.Stop();
 		}
 		private float getSampleValueSimple(MODMixerChannel mc)
 		{
@@ -1148,9 +1154,7 @@ namespace ModuleSystem
 		}
 		private void mixData()
 		{
-			var startTime = System.Diagnostics.Stopwatch.StartNew();
-			//System.Diagnostics.Debug.WriteLine("Start mixing -> ...");
-
+			//var startTime = System.Diagnostics.Stopwatch.StartNew();
 			//*
 			string ms = " channels " + module.nChannels + " ";
 			for (int pos = 0; pos < mixBufferLen; pos++)
@@ -1175,6 +1179,7 @@ namespace ModuleSystem
 							mixValue += getSampleValueSimple(mc);
 							//mixValue += getSampleValueLinear(mc);
 							//mixValue += getSampleValueSpline(mc);
+							
 							//mixValueL += (((ch & 0x03) == 0) || ((ch & 0x03) == 3)) ? mixValue : 0;
 							//mixValueR += (((ch & 0x03) == 1) || ((ch & 0x03) == 2)) ? mixValue : 0;
 						}
@@ -1182,16 +1187,8 @@ namespace ModuleSystem
 					mc.instrumentPosition += mc.periodInc;
 				}
 				mixValue /= module.nChannels;
-				//mixValue = (mixValue < -1.0f) ? -1.0f : mixValue;
-				//mixValue = (mixValue > 1.0f) ? 1.0f : mixValue;
-
 				//mixValueL /= module.nChannels * 2.0f;
-				//mixValueL = (mixValueL < -1.0f) ? -1.0f : mixValueL;
-				//mixValueL = (mixValueL >  1.0f) ?  1.0f : mixValueL;
-
 				//mixValueR /= module.nChannels * 2.0f;
-				//mixValueR = (mixValueR < -1.0f) ? -1.0f : mixValueR;
-				//mixValueR = (mixValueR >  1.0f) ?  1.0f : mixValueR;
 
 				waveStream.Write((short)(mixValue * ModuleConst.SOUND_AMP));
 				//waveStream.Write((short)((mixValueR * 0.75f + mixValueL * 0.25f) * ModuleConst.SOUND_AMP));
@@ -1214,6 +1211,5 @@ namespace ModuleSystem
 			//                                    resultTime.Milliseconds);
 			//System.Diagnostics.Debug.WriteLine("Mixing time = " + elapsedTime);
 		}
-
 	}
 }

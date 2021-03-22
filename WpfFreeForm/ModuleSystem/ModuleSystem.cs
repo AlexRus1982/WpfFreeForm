@@ -322,11 +322,6 @@ namespace ModuleSystem
         public int currentFineTune = 0;
         public int lastFineTune = 0;
         public int period = 0;
-        public int slideToPeriod = 0;
-        public int notePeriod = 0;
-        public int lastPeriod = 0;
-        public int freq = 0;
-        public int lastFreq = 0;
         public float periodInc = 0;
         public float instrumentPosition = 2;
         public int loopType = ModuleConst.LOOP_ON;
@@ -370,6 +365,7 @@ namespace ModuleSystem
         {
             return (period != 0) ? (float)ModuleConst.AMIGA_FREQUENCY / (period * ModuleConst.SOUNDFREQUENCY) : 1.0f;
         }
+
         //public void mixModule(int startPosition = 0)
         //{
         //    track = startPosition;
@@ -436,30 +432,30 @@ namespace ModuleSystem
         //}
         private void DebugMes(string mes)
         {
-#if DEBUG
+            #if DEBUG
             System.Diagnostics.Debug.WriteLine(mes);
-#endif
+            #endif
         }
     }
     public class Module : IDisposable
     {
-        protected readonly string moduleName = "Base module";
-        protected float position = 0;
+        protected readonly string moduleName    = "Base module";
+        protected float position                = 0;
 
-        public string fileName = "";
-        public long fileLength = 0;
-        public string trackerName = "";
-        public string modID = "";
-        public string songName = "";
-        public int nChannels = 0;
-        public int nInstruments = 0;
-        public int nSamples = 0;
-        public int nPatterns = 0;
-        public int BPM = 125;
-        public int tempo = 6;
-        public int songLength = 0;
-        public float baseVolume = 0.0f;
-        public bool isAmigaLike = true;
+        public string fileName                  = "";
+        public long fileLength                  = 0;
+        public string trackerName               = "";
+        public string modID                     = "";
+        public string songName                  = "";
+        public int nChannels                    = 0;
+        public int nInstruments                 = 0;
+        public int nSamples                     = 0;
+        public int nPatterns                    = 0;
+        public int BPM                          = 125;
+        public int tempo                        = 6;
+        public int songLength                   = 0;
+        public float baseVolume                 = 0.0f;
+        public bool isAmigaLike                 = true;
         public float Position
         {
             get
@@ -492,9 +488,9 @@ namespace ModuleSystem
         public virtual void Dispose() { }
         protected void DebugMes(string mes)
         {
-#if DEBUG
+            #if DEBUG
             System.Diagnostics.Debug.WriteLine("Module " + moduleName + " -> " + mes);
-#endif
+            #endif
         }
     }
 

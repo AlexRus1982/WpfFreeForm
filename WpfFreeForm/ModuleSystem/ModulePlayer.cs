@@ -6,7 +6,7 @@ namespace ModuleSystem
     public class ModulePlayer
     {
         private List<Module> libModules = new List<Module>();
-        private Module module = null;
+        private Module module           = null;
         public float Position
         {
             get
@@ -27,7 +27,8 @@ namespace ModuleSystem
         {
             module?.Dispose();
             for (int i = 0; i < libModules.Count; i++)
-                if (libModules[i].checkFormat(stream)) module = libModules[i];
+                if (libModules[i].checkFormat(stream))
+                    module = libModules[i];
 
             module?.readFromStream(stream);
             DebugMes(module.ToString());
@@ -35,7 +36,6 @@ namespace ModuleSystem
         }
         public bool OpenFromFile(string fileName)
         {
-            module?.Dispose();
             bool res = false;
             using (FileStream fstream = File.OpenRead(fileName))
             {
