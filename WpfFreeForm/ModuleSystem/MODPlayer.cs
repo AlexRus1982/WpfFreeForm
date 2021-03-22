@@ -1091,7 +1091,7 @@ namespace ModuleSystem
 			waveOut?.Dispose();
 			MixingTask?.Dispose();
 
-			waveStream = new ModuleSoundStream(ModuleConst.SOUNDFREQUENCY);
+			waveStream = new ModuleSoundStream(ModuleConst.SOUNDFREQUENCY, ModuleConst.MIX_CHANNELS == ModuleConst.STEREO);
 			waveOut = new WaveOutEvent();
 			mixData();
 
@@ -1157,7 +1157,7 @@ namespace ModuleSystem
 			//var startTime = System.Diagnostics.Stopwatch.StartNew();
 			//*
 			string ms = " channels " + module.nChannels + " ";
-			for (int pos = 0; pos < mixBufferLen; pos++)
+			for (int pos = 0; pos < ModuleConst.MIX_LEN; pos++)
 			{
 				float mixValueR = 0;
 				float mixValueL = 0;
@@ -1179,20 +1179,30 @@ namespace ModuleSystem
 							mixValue += getSampleValueSimple(mc);
 							//mixValue += getSampleValueLinear(mc);
 							//mixValue += getSampleValueSpline(mc);
-							
-							//mixValueL += (((ch & 0x03) == 0) || ((ch & 0x03) == 3)) ? mixValue : 0;
-							//mixValueR += (((ch & 0x03) == 1) || ((ch & 0x03) == 2)) ? mixValue : 0;
+							if (ModuleConst.MIX_CHANNELS == ModuleConst.STEREO)
+							{
+								mixValueL += (((ch & 0x03) == 0) || ((ch & 0x03) == 3)) ? mixValue : 0;
+								mixValueR += (((ch & 0x03) == 1) || ((ch & 0x03) == 2)) ? mixValue : 0;
+							}
 						}
 					}
 					mc.instrumentPosition += mc.periodInc;
 				}
-				mixValue /= module.nChannels;
-				//mixValueL /= module.nChannels * 2.0f;
-				//mixValueR /= module.nChannels * 2.0f;
+				if (ModuleConst.MIX_CHANNELS != ModuleConst.STEREO)
+					mixValue /= module.nChannels;
+				else
+				{
+					mixValueL /= (module.nChannels << 1);
+					mixValueR /= (module.nChannels << 1);
+				}
 
-				waveStream.Write((short)(mixValue * ModuleConst.SOUND_AMP));
-				//waveStream.Write((short)((mixValueR * 0.75f + mixValueL * 0.25f) * ModuleConst.SOUND_AMP));
-				//waveStream.Write((short)((mixValueL * 0.75f + mixValueR * 0.25f) * ModuleConst.SOUND_AMP));
+				if (ModuleConst.MIX_CHANNELS != ModuleConst.STEREO)
+					waveStream.Write((short)(mixValue * ModuleConst.SOUND_AMP));
+				else
+				{
+					waveStream.Write((short)((mixValueR * 0.75f + mixValueL * 0.25f) * ModuleConst.SOUND_AMP));
+					waveStream.Write((short)((mixValueL * 0.75f + mixValueR * 0.25f) * ModuleConst.SOUND_AMP));
+				}
 
 				mixerPosition++;
 				if (mixerPosition >= samplesPerTick)

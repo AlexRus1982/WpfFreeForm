@@ -8,38 +8,39 @@ namespace ModuleSystem
     /// </summary>
     public static class ModuleConst
     {
-        public const string VERSION = "V1.0";
-        public const string PROGRAM = "Sound module player";
-        public const string COPYRIGHT = "Copyright by Alex 2020";
-        public const string FULLVERSION = PROGRAM + " " + VERSION + " " + COPYRIGHT;
+        public const string VERSION                 = "V1.0";
+        public const string PROGRAM                 = "Sound module player";
+        public const string COPYRIGHT               = "Copyright by Alex 2020";
+        public const string FULLVERSION             = PROGRAM + " " + VERSION + " " + COPYRIGHT;
 
-        public const int SOUNDFREQUENCY = 48000; //44100
-        public const int SOUNDBUFFERSECONDS = 1;
-        public const int MIX_LEN = SOUNDFREQUENCY * SOUNDBUFFERSECONDS;
-        public const int MIX_WAIT = MIX_LEN * 2;
+        public const int SOUNDBITS                  = 16;
+        public const int MONO                       = 0x01;
+        public const int STEREO                     = 0x02;
+        public const int LOOP_OFF                   = 0x00;
+        public const int LOOP_ON                    = 0x01;
+        public const int LOOP_SUSTAIN_ON            = 0x02;
+        public const int LOOP_IS_PINGPONG           = 0x04;
+        public const int LOOP_SUSTAIN_IS_PINGPONG   = 0x08;
 
-        public const int SOUNDBITS = 16;
-        public const int MONO = 0x01;
-        public const int STEREO = 0x02;
-        public const int LOOP_OFF = 0x00;
-        public const int LOOP_ON = 0x01;
-        public const int LOOP_SUSTAIN_ON = 0x02;
-        public const int LOOP_IS_PINGPONG = 0x04;
-        public const int LOOP_SUSTAIN_IS_PINGPONG = 0x08;
+        public const int SOUNDFREQUENCY             = 48000; //44100
+        public const int SOUNDBUFFERSECONDS         = 1;
+        public const int MIX_LEN                    = SOUNDFREQUENCY * SOUNDBUFFERSECONDS;
+        public const int MIX_WAIT                   = MIX_LEN * 2;
+        public const int MIX_CHANNELS               = MONO;
 
-        public const float AMIGA_FREQUENCY = 7093789.2f * 0.5f; //7093789.2f 7159090.5f
-        public const int NORM_MAX_PERIOD = 856;
-        public const int NORM_MIN_PERIOD = 113;
-        public const int EXT_MAX_PERIOD = 1712;
-        public const int EXT_MIN_PERIOD = 56;
-        public const int MAX_PERIOD = EXT_MAX_PERIOD;
-        public const int MIN_PERIOD = EXT_MIN_PERIOD;
-        public const int BASEFREQUENCY = 8363;
-        public const int BASEPERIOD = 428;
-        public const int MAXVOLUME = 64;
-        public const int SM_16BIT = 0x04;   // 16 BIT
-        public const int SM_STEREO = 0x08;  // STEREO
-        public const int SOUND_AMP = 32767;  // MAX SOUND AMP -32768..32767
+        public const float AMIGA_FREQUENCY          = 7093789.2f * 0.5f; //7093789.2f 7159090.5f
+        public const int NORM_MAX_PERIOD            = 856;
+        public const int NORM_MIN_PERIOD            = 113;
+        public const int EXT_MAX_PERIOD             = 1712;
+        public const int EXT_MIN_PERIOD             = 56;
+        public const int MAX_PERIOD                 = EXT_MAX_PERIOD;
+        public const int MIN_PERIOD                 = EXT_MIN_PERIOD;
+        public const int BASEFREQUENCY              = 8363;
+        public const int BASEPERIOD                 = 428;
+        public const int MAXVOLUME                  = 64;
+        public const int SM_16BIT                   = 0x04;   // 16 BIT
+        public const int SM_STEREO                  = 0x08;  // STEREO
+        public const int SOUND_AMP                  = 32767;  // MAX SOUND AMP -32768..32767
 
         public static string[] noteStrings =
         {
@@ -338,22 +339,19 @@ namespace ModuleSystem
     /// </summary>
     public class ModuleMixer
     {
-        protected int mixBufferLen = ModuleConst.MIX_LEN;
-        protected int mixBits = 16;
-        protected int mixChnls = 2;
-        protected bool playing = false;
-        protected bool moduleEnd = false;
-        protected bool pattEnd = false;
-        protected int counter = 0;
-        protected int speed = 6;
-        protected int patternDelay = 0;
-        protected int BPM = 125;
-        protected int maxPatternRows = 64;
-        protected int samplesPerTick = 0;
-        protected int mixerPosition = 0;
-        protected int currentRow = 0;
-        protected int track = 0;
-        protected bool mixLoop = true;
+        protected bool playing              = false;
+        protected bool moduleEnd            = false;
+        protected bool pattEnd              = false;
+        protected int counter               = 0;
+        protected int speed                 = 6;
+        protected int patternDelay          = 0;
+        protected int BPM                   = 125;
+        protected int maxPatternRows        = 64;
+        protected int samplesPerTick        = 0;
+        protected int mixerPosition         = 0;
+        protected int currentRow            = 0;
+        protected int track                 = 0;
+        protected bool mixLoop              = true;
         public ModuleMixer()
         {
         }

@@ -21,7 +21,6 @@ namespace ModuleSystem
             sampleQueue = new ConcurrentQueue<byte>();
             WriteWavHeader(sampleRate, stereo);
         }
-
         /// <summary>
         /// Write audio short sample -32768..32767 into stream
         /// </summary>
@@ -58,7 +57,6 @@ namespace ModuleSystem
 
             return res;
         }
-
         #region WAV header
         /// <summary>
         /// Write wave header in start of wave stream with sampleRate frequency
@@ -77,7 +75,7 @@ namespace ModuleSystem
             ushort audioFormat = 1;
             ushort numChannels = 1;  // Mono - 1, Stereo - 2
             ushort bitsPerSample = 16;
-            ushort blockAlign = (ushort)(stereo ? 2 : 1 /*numChannels*/ * (bitsPerSample / 8));
+            ushort blockAlign = (ushort)((stereo ? 2 : 1) /*numChannels*/ * (bitsPerSample / 8));
             //uint sampleRate = (uint)ModuleConst.SOUNDFREQUENCY;
             uint byteRate = (uint)sampleRate * blockAlign;
             uint waveSize = 4;
@@ -108,7 +106,6 @@ namespace ModuleSystem
             stream.Dispose();
         }
         #endregion
-
         #region Stream impl
         public override bool CanRead
         {
