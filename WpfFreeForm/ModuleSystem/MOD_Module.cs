@@ -8,13 +8,13 @@ using NAudio.Wave;
 
 namespace ModuleSystem
 {
-	public class MODMixerChannel : ModuleMixerChannel
+	public class MOD_MixerChannel : ModuleMixerChannel
 	{
-		public MODPatternChannel patternChannel = null;
-		public MODInstrument instrument			= null;
-		public MODInstrument lastInstrument		= null;
+		public MOD_PatternChannel patternChannel	= null;
+		public MOD_Instrument instrument			= null;
+		public MOD_Instrument lastInstrument		= null;
 	}
-	public class MODInstrument
+	public class MOD_Instrument
 	{
 		public string name					= "";	// Name of the sample
 		public int number					= 0;	// Number of the sample
@@ -29,7 +29,7 @@ namespace ModuleSystem
 
 		public List<float> instrumentData	= new List<float>();	// The sampledata, already converted to 16 bit (always)
 																	// 8Bit: -128 to 127; 16Bit: -32768..0..+32767
-		public MODInstrument()
+		public MOD_Instrument()
 		{
 		}
 		public override string ToString()
@@ -50,28 +50,28 @@ namespace ModuleSystem
 
 			return res;
 			//*/
-			//return this.toShortString();
+			//return this.ToShortString();
 		}
-		public string toShortString()
+		public string ToShortString()
 		{
 			return this.name;
 		}
-		public void readInstrumentHeader(Stream stream)
+		public void ReadInstrumentHeader(Stream stream)
 		{
-			name = ModuleUtils.readString0(stream, 22);
-			length = ModuleUtils.readWord(stream) * 2; // Length
+			name = ModuleUtils.ReadString0(stream, 22);
+			length = (int)ModuleUtils.ReadWordSwap(stream) * 2; // Length
 
 			fineTune = stream.ReadByte() & 0xF; // finetune Value>7 means negative 8..15= -8..-1
 												//fineTune = (fine > 7) ? fine - 16 : fine;
 
-			//baseFrequency = ModuleConst.getNoteFreq(24, fine);
+			//baseFrequency = ModuleConst.GetNoteFreq(24, fine);
 
 			int vol = stream.ReadByte(); // volume 64 is maximum
 			volume = (vol > 64) ? 1.0f : (float)vol / 64.0f;
 
 			//// Repeat start and stop
-			repeatStart = ModuleUtils.readWord(stream) * 2;
-			repeatLength = ModuleUtils.readWord(stream) * 2;
+			repeatStart = ModuleUtils.ReadWordSwap(stream) * 2;
+			repeatLength = (int)ModuleUtils.ReadWordSwap(stream) * 2;
 			repeatStop = repeatStart + repeatLength;
 
 			if (length < 4) 
@@ -99,13 +99,13 @@ namespace ModuleSystem
 			
 			repeatLength = (int)(repeatStop - repeatStart);
 		}
-		public void readInstrumentData(Stream stream)
+		public void ReadInstrumentData(Stream stream)
 		{
 			instrumentData.Clear();
 			if (length > 0)
 			{
 				for (int s = 0; s < length; s++)
-					instrumentData.Add((float)(ModuleUtils.readSignedByte(stream)) * 0.0078125f);  // 0.0078125f = 1/128
+					instrumentData.Add((float)(ModuleUtils.ReadSignedByte(stream)) * 0.0078125f);  // 0.0078125f = 1/128
 			}
 		}
 		public void Clear()
@@ -113,28 +113,28 @@ namespace ModuleSystem
 			instrumentData.Clear();
 		}
 	}
-	public class MODPatternChannel
+	public class MOD_PatternChannel
 	{
-		public int period			= 0;
-		public int noteIndex		= 0;
-		public int instrument		= 0;
-		public int effekt			= 0;
-		public int effektOp			= 0;
-		public int volumeEffekt		= 0;
-		public int volumeEffektOp	= 0;
+		public uint period			= 0;
+		public uint noteIndex		= 0;
+		public uint instrument		= 0;
+		public uint effekt			= 0;
+		public uint effektOp		= 0;
+		public uint volumeEffekt	= 0;
+		public uint volumeEffektOp	= 0;
 		public override string ToString()
 		{
-			string res = ModuleConst.getNoteNameToIndex(noteIndex);
+			string res = ModuleConst.GetNoteNameToIndex((int)noteIndex);
 			res += ((period == 0 && noteIndex != 0) || (period != 0 && noteIndex == 0)) ? "!" : " ";
-			res += (instrument != 0) ? ModuleUtils.getAsHex(instrument, 2) : "..";
+			res += (instrument != 0) ? ModuleUtils.GetAsHex(instrument, 2) : "..";
 			res += " ";
-			res += ((effekt != 0) || (effektOp != 0)) ? ModuleUtils.getAsHex(effekt, 1) + ModuleUtils.getAsHex(effektOp, 2) : "...";
+			res += ((effekt != 0) || (effektOp != 0)) ? ModuleUtils.GetAsHex(effekt, 1) + ModuleUtils.GetAsHex(effektOp, 2) : "...";
 			return res;
 		}
 	}
-	public class MODPatternRow
+	public class MOD_PatternRow
 	{
-		public List<MODPatternChannel> patternChannels = new List<MODPatternChannel>();
+		public List<MOD_PatternChannel> patternChannels = new List<MOD_PatternChannel>();
 		public override string ToString()
 		{
 			string res = "";
@@ -147,54 +147,54 @@ namespace ModuleSystem
 			patternChannels.Clear();
 		}
 	}
-	public class MODPattern
+	public class MOD_Pattern
 	{
-		public List<MODPatternRow> patternRows = new List<MODPatternRow>();
-		private MODPatternChannel createNewPatternChannel(Stream stream, int nSamples)
+		public List<MOD_PatternRow> patternRows = new List<MOD_PatternRow>();
+		private MOD_PatternChannel CreateNewPatternChannel(Stream stream, uint numberOfSamples)
 		{
-			MODPatternChannel channel = new MODPatternChannel();
-			int b0 = stream.ReadByte();
-			int b1 = stream.ReadByte();
-			int b2 = stream.ReadByte();
-			int b3 = stream.ReadByte();
+			MOD_PatternChannel channel = new MOD_PatternChannel();
+			uint b0 = (uint)stream.ReadByte();
+			uint b1 = (uint)stream.ReadByte();
+			uint b2 = (uint)stream.ReadByte();
+			uint b3 = (uint)stream.ReadByte();
 
-			channel.instrument = ((b0 & 0xF0) | ((b2 & 0xF0) >> 4)) & nSamples;
-			channel.period = ((b0 & 0x0F) << 8) | b1;
+			channel.instrument = (uint)(((b0 & 0xF0) | ((b2 & 0xF0) >> 4)) & numberOfSamples);
+			channel.period = (uint)(((b0 & 0x0F) << 8) | b1);
 
-			if (channel.period > 0) channel.noteIndex = ModuleConst.getNoteIndexForPeriod(channel.period);
+			if (channel.period > 0) channel.noteIndex = ModuleConst.GetNoteIndexForPeriod((int)channel.period);
 
 			channel.effekt = b2 & 0x0F;
 			channel.effektOp = b3;
 
 			return channel;
 		}
-		public void readPatternData(Stream stream, string modID, int nChannels, int nSamples)
+		public void ReadPatternData(Stream stream, string moduleID, uint numberOfChannels, uint numberOfSamples)
 		{
-			if (modID == "FLT8") // StarTrekker is slightly different
+			if (moduleID == "FLT8") // StarTrekker is slightly different
 			{
 				for (int row = 0; row < 64; row++)
 				{
-					MODPatternRow pRow = new MODPatternRow();
+					MOD_PatternRow pRow = new MOD_PatternRow();
 					for (int channel = 0; channel < 4; channel++)
 					{
-						pRow.patternChannels.Add(createNewPatternChannel(stream, nSamples));
+						pRow.patternChannels.Add(CreateNewPatternChannel(stream, numberOfSamples));
 					}
 					for (int channel = 4; channel < 8; channel++) 
-						pRow.patternChannels.Add(new MODPatternChannel());
+						pRow.patternChannels.Add(new MOD_PatternChannel());
 					
 					patternRows.Add(pRow);
 				}
 				for (int row = 0; row < 64; row++)
 					for (int channel = 4; channel < 8; channel++)
-						patternRows[row].patternChannels[channel] =	createNewPatternChannel(stream, nSamples);
+						patternRows[row].patternChannels[channel] =	CreateNewPatternChannel(stream, numberOfSamples);
 			}
 			else
 			{
 				for (int row = 0; row < 64; row++)
 				{
-					MODPatternRow pRow = new MODPatternRow();
-					for (int channel = 0; channel < nChannels; channel++)
-						pRow.patternChannels.Add(createNewPatternChannel(stream, nSamples));
+					MOD_PatternRow pRow = new MOD_PatternRow();
+					for (int channel = 0; channel < numberOfChannels; channel++)
+						pRow.patternChannels.Add(CreateNewPatternChannel(stream, numberOfSamples));
 
 					patternRows.Add(pRow);
 				}
@@ -212,7 +212,7 @@ namespace ModuleSystem
 				res += ln + "\n";
 
 				for (int i = 0; i < patternRows.Count; i++)
-					res += ModuleUtils.getAsHex(i, 2) + ":|" + patternRows[i] + "\n";
+					res += ModuleUtils.GetAsHex((uint)i, 2) + ":|" + patternRows[i] + "\n";
 
 				res += ln + "\n";
 			}
@@ -224,222 +224,222 @@ namespace ModuleSystem
 			patternRows.Clear();
 		}
 	}
-	public class MODModule : Module
+	public class MOD_Module : Module
     {
-		public List<MODInstrument> instruments	= new List<MODInstrument>();
-		public List<MODPattern> patterns		= new List<MODPattern>();
-		public List<int> arrangement			= new List<int>();
+		public List<MOD_Instrument> instruments	= new List<MOD_Instrument>();
+		public List<MOD_Pattern> patterns		= new List<MOD_Pattern>();
+		public List<uint> arrangement			= new List<uint>();
 
-		private int bytesLeft					= 0;
-		private MODMixer mixer					= null;
-		public MODModule():base("MOD format")
+		private uint bytesLeft					= 0;
+		private MOD_Mixer mixer					= null;
+		public MOD_Module():base("MOD format")
 		{
 			DebugMes("MOD Sound Module created");			
 		}
-		private long getAllInstrumentsLength()
+		private long GetAllInstrumentsLength()
 		{
 			long allSamplesLength = 0;
-			foreach (MODInstrument inst in instruments) allSamplesLength += inst.length;
+			foreach (MOD_Instrument inst in instruments) allSamplesLength += inst.length;
 			return allSamplesLength;
 		}
 		public string InstrumentsToString()
 		{
 			string res = "Samples info : \n";
 			int i = 0;
-			foreach (MODInstrument inst in instruments)	
-				res += ModuleUtils.getAsHex(i++, 2) + ':' + inst.ToString() + "\n";
+			foreach (MOD_Instrument inst in instruments)	
+				res += ModuleUtils.GetAsHex((uint)i++, 2) + ':' + inst.ToString() + "\n";
 			return res;
 		}
-		private void readInstruments(Stream stream)
+		private void ReadInstruments(Stream stream)
 		{
-			foreach (MODInstrument inst in instruments) inst.Clear();				
+			foreach (MOD_Instrument inst in instruments) inst.Clear();				
 			instruments.Clear();
-			for (int i = 0; i < nSamples; i++)
+			for (int i = 0; i < numberOfSamples; i++)
 			{
-				MODInstrument inst = new MODInstrument();
+				MOD_Instrument inst = new MOD_Instrument();
 				inst.number = i;
 				instruments.Add(inst);
-				inst.readInstrumentHeader(stream);
+				inst.ReadInstrumentHeader(stream);
 			}
 			//DebugMes(InstrumentsToString());
 		}
-		private void readArrangement(Stream stream)
+		private void ReadArrangement(Stream stream)
 		{
-			songLength = stream.ReadByte(); // count of pattern in arrangement
+			songLength = (uint)stream.ReadByte(); // count of pattern in arrangement
 			stream.ReadByte();              // skip, ood old CIAA
 
 			arrangement.Clear();
 			// always space for 128 pattern...
-			for (int i = 0; i < 128; i++) arrangement.Add(stream.ReadByte());
+			for (int i = 0; i < 128; i++) arrangement.Add((uint)stream.ReadByte());
 
 		}
-		private int calcPattCount()
+		private uint CalcPattCount()
 		{
 			int headerLen = 150; // Name+SongLen+CIAA+SongArrangement
-			if (nSamples > 15) headerLen += 4;  // Kennung
+			if (numberOfSamples > 15) headerLen += 4;  // Kennung
 						
 			int sampleLen = 0;
-			foreach (MODInstrument inst in instruments) 
+			foreach (MOD_Instrument inst in instruments) 
 				sampleLen += 30 + inst.length;
 			
 			int spaceForPattern = (int)(fileLength - headerLen - sampleLen);
 		
 			// Lets find out about the highest Patternnumber used
 			// in the song arrangement
-			int maxPatternNumber = 0;
+			uint maxPatternNumber = 0;
 			for (int i = 0; i < songLength; i++)
 			{
-				int patternNumber = arrangement[i];
+				uint patternNumber = arrangement[i];
 				if (patternNumber > maxPatternNumber && patternNumber < 0x80)
-					maxPatternNumber = arrangement[i];
+					maxPatternNumber = (uint)arrangement[i];
 			}
 			maxPatternNumber++; // Highest number becomes highest count 
 
 			// It could be the WOW-Format:
-			if (modID == "M.K.")
+			if (moduleID == "M.K.")
 			{
 				// so check for 8 channels:
-				int totalPatternBytes = maxPatternNumber * 2048; //64*4*8
+				uint totalPatternBytes = maxPatternNumber * 2048; //64*4*8
 				// This mod has 8 channels! --> WOW
 				if (totalPatternBytes == spaceForPattern)
 				{
 					isAmigaLike = true;
-					nChannels = 8;
+					numberOfChannels = 8;
 					trackerName = "Grave Composer";
 				}
 			}
 
-			int bytesPerPattern = 256 * nChannels; //64*4*nChannels
-			nPatterns = (int)(spaceForPattern / bytesPerPattern);
-			int bytesLeft = (int)(spaceForPattern % bytesPerPattern);
+			uint bytesPerPattern = (256 * numberOfChannels); //64*4*numberOfChannels
+			numberOfPatterns = (uint)(spaceForPattern / bytesPerPattern);
+			uint bytesLeft = (uint)(spaceForPattern % bytesPerPattern);
 			if (bytesLeft > 0) // It does not fit!
 			{
-				if (maxPatternNumber > nPatterns)
+				if (maxPatternNumber > numberOfPatterns)
 				{
 					// The modfile is too short. The highest pattern is reaching into
 					// the sampledata, but it has to be read!
 					bytesLeft -= bytesPerPattern;
-					nPatterns = maxPatternNumber + 1;
+					numberOfPatterns = (uint)(maxPatternNumber + 1);
 				}
 				else
 				{
 					// The modfile is too long. Sometimes this happens if composer
 					// add additional data to the modfile.
-					bytesLeft += (nPatterns - maxPatternNumber) * bytesPerPattern;
-					nPatterns = maxPatternNumber;
+					bytesLeft += (uint)((numberOfPatterns - maxPatternNumber) * bytesPerPattern);
+					numberOfPatterns = maxPatternNumber;
 				}
 				return bytesLeft;
 			}			
 			return 0;
 		}
-		private void readPatterns(Stream stream)
+		private void ReadPatterns(Stream stream)
 		{
-			foreach (MODPattern pat in patterns)
+			foreach (MOD_Pattern pat in patterns)
 				pat.Clear();
 
 			patterns.Clear();
-			if (nSamples > 15)
-				stream.Seek(4, SeekOrigin.Current);	// skip ModID, if not NoiseTracker:
+			if (numberOfSamples > 15)
+				stream.Seek(4, SeekOrigin.Current);	// skip moduleID, if not NoiseTracker:
 																	
-			bytesLeft = calcPattCount();
-            for (int i = 0; i < nPatterns; i++)						// Read the patterndata
+			bytesLeft = CalcPattCount();
+            for (int i = 0; i < numberOfPatterns; i++)						// Read the patterndata
 			{
-                MODPattern pattern = new MODPattern();
-                pattern.readPatternData(stream, modID, nChannels, nSamples);
+                MOD_Pattern pattern = new MOD_Pattern();
+                pattern.ReadPatternData(stream, moduleID, numberOfChannels, numberOfSamples);
                 patterns.Add(pattern);
 				//DebugMes("Patern : " + i + pattern.ToString());
             }
         }
-		private void readInstrumentsData(Stream stream)
+		private void ReadInstrumentsData(Stream stream)
 		{
 			// Sampledata: If the modfile was too short, we need to recalculate:
 			if (bytesLeft < 0)
 			{
-				long calcSamplePos = getAllInstrumentsLength();
+				long calcSamplePos = GetAllInstrumentsLength();
 				calcSamplePos = fileLength - calcSamplePos;
 				if (calcSamplePos < stream.Position) stream.Seek(calcSamplePos, SeekOrigin.Begin); // do this only, if needed!
 			}
-			for (int i = 0; i < nSamples; i++) 
-				instruments[i].readInstrumentData(stream);
+			for (int i = 0; i < numberOfSamples; i++) 
+				instruments[i].ReadInstrumentData(stream);
 		}
-		public override bool readFromStream(Stream stream)
+		public override bool ReadFromStream(Stream stream)
 		{
 			fileLength = stream.Length;
 			baseVolume = 1.0f;
 			BPM = 125;
 			tempo = 6;
 
-			if (!checkFormat(stream)) 
+			if (!CheckFormat(stream)) 
 				return false;
 
-			setModType();
+			SetModuleType();
 
 			stream.Seek(0, SeekOrigin.Begin);
-			songName = ModuleUtils.readString0(stream, 20);
-			nInstruments = nSamples;
-			readInstruments(stream);		// read instruments		
-			readArrangement(stream);		// read pattern order	
-			readPatterns(stream);			// read patterns
-			readInstrumentsData(stream);    // read samples data
+			songName = ModuleUtils.ReadString0(stream, 20);
+			numberOfInstruments = numberOfSamples;
+			ReadInstruments(stream);		// read instruments		
+			ReadArrangement(stream);		// read pattern order	
+			ReadPatterns(stream);			// read patterns
+			ReadInstrumentsData(stream);    // read samples data
 
-			mixer = new MODMixer(this);
+			mixer = new MOD_Mixer(this);
 			return true;
 		}
-		private void setModType()
+		private void SetModuleType()
 		{
 			isAmigaLike = false;
-			nSamples = 31;
+			numberOfSamples = 31;
 			trackerName = "StarTrekker";
 
-			if (modID == "M.K." || modID == "M!K!" || modID == "M&K!" || modID == "N.T.")
+			if (moduleID == "M.K." || moduleID == "M!K!" || moduleID == "M&K!" || moduleID == "N.T.")
 			{
 				isAmigaLike = true; 
-				nChannels = 4;
+				numberOfChannels = 4;
 				trackerName = "ProTracker";
 			}
 			
-			if (modID.Substring(0, 3) == "FLT" || modID.Substring(0, 3) == "TDZ")
-				nChannels = int.Parse(modID.Substring(3, 1));
+			if (moduleID.Substring(0, 3) == "FLT" || moduleID.Substring(0, 3) == "TDZ")
+				numberOfChannels = uint.Parse(moduleID.Substring(3, 1));
 
-			if (modID.Substring(1, 3) == "CHN")
-				nChannels = int.Parse(modID.Substring(0, 1));
+			if (moduleID.Substring(1, 3) == "CHN")
+				numberOfChannels = uint.Parse(moduleID.Substring(0, 1));
 
-			if (modID == "CD81" || modID == "OKTA")
+			if (moduleID == "CD81" || moduleID == "OKTA")
 			{
-				nChannels = 8;
+				numberOfChannels = 8;
 				trackerName = "Atari Oktalyzer";
 			}
 
-			if (modID.Substring(2, 2) == "CH" || modID.Substring(2, 2) == "CN")
+			if (moduleID.Substring(2, 2) == "CH" || moduleID.Substring(2, 2) == "CN")
 			{
-				nChannels = int.Parse(modID.Substring(0, 2));
+				numberOfChannels = uint.Parse(moduleID.Substring(0, 2));
 				trackerName = "TakeTracker";
 			}	 
 		}
-		public override bool checkFormat(Stream stream)
+		public override bool CheckFormat(Stream stream)
 		{
 			byte[] bytesID = new byte[4];
 			stream.Seek(1080, SeekOrigin.Begin);
 			stream.Read(bytesID);
-			modID = Encoding.ASCII.GetString(bytesID);
-            return modID == "M.K." ||
-                   modID == "M!K!" ||
-                   modID == "M&K!" ||
-                   modID == "N.T." ||
-                   modID == "CD81" ||
-                   modID == "OKTA" ||
-                   modID.Substring(0, 3) == "FLT" ||
-                   modID.Substring(0, 3) == "TDZ" ||
-                   modID.Substring(1, 3) == "CHN" ||
-                   modID.Substring(2, 2) == "CH"  ||
-				   modID.Substring(2, 2) == "CN";
+			moduleID = Encoding.ASCII.GetString(bytesID);
+            return moduleID					== "M.K." ||
+                   moduleID					== "M!K!" ||
+                   moduleID					== "M&K!" ||
+                   moduleID					== "N.T." ||
+                   moduleID					== "CD81" ||
+                   moduleID					== "OKTA" ||
+                   moduleID.Substring(0, 3) == "FLT"  ||
+                   moduleID.Substring(0, 3) == "TDZ"  ||
+                   moduleID.Substring(1, 3) == "CHN"  ||
+                   moduleID.Substring(2, 2) == "CH"   ||
+				   moduleID.Substring(2, 2) == "CN";
 		}
 		public override string ToString()
 		{
 			string modInfo = "";
 			modInfo += "Mod Length " + this.fileLength + "\n";
-			modInfo += "Mod with " + nSamples + " samples and " + nChannels + " channels using\n";
-			modInfo += "Tracker : " + trackerName + " modID : " + modID + "\n";
+			modInfo += "Mod with " + numberOfSamples + " samples and " + numberOfChannels + " channels using\n";
+			modInfo += "Tracker : " + trackerName + " moduleID : " + moduleID + "\n";
 			modInfo += (isAmigaLike) ? "Protracker" : "Fast Tracker log";
 			modInfo += " frequency table\n";
 			modInfo += "Song named : " + songName + "\n";
@@ -452,7 +452,7 @@ namespace ModuleSystem
 		}
 		public override void PlayInstrument(int num)
         {
-			if (num < 0 || num >= nSamples) return;
+			if (num < 0 || num >= numberOfSamples) return;
 
 			//soundSystem.Stop();
 			////DebugMes("Instruments count - " + instruments.Count);
@@ -477,7 +477,7 @@ namespace ModuleSystem
 		}
 		public override void Play()
         {
-			mixer.playModule(0);
+			mixer.PlayModule(0);
         }
 		public override void Stop()
 		{
@@ -488,17 +488,17 @@ namespace ModuleSystem
 			mixer.Stop();
 		}
 	}
-	public class MODMixer : ModuleMixer
+	public class MOD_Mixer : ModuleMixer
 	{
-		private MODModule module								= null;
-		private MODPattern pattern								= null;
-		private List<MODMixerChannel> mixChannels				= new List<MODMixerChannel>();
+		private MOD_Module module								= null;
+		private MOD_Pattern pattern								= null;
+		private List<MOD_MixerChannel> mixChannels				= new List<MOD_MixerChannel>();
 
-		private List<Func<MODMixerChannel, bool>> noteEffects	= new List<Func<MODMixerChannel, bool>>();
+		private List<Func<MOD_MixerChannel, bool>> noteEffects	= new List<Func<MOD_MixerChannel, bool>>();
 		private List<bool> noteEffectsUsed						= new List<bool>();
-		private List<Func<MODMixerChannel, bool>> tickEffects	= new List<Func<MODMixerChannel, bool>>();
+		private List<Func<MOD_MixerChannel, bool>> tickEffects	= new List<Func<MOD_MixerChannel, bool>>();
 		private List<bool> tickEffectsUsed						= new List<bool>();
-		private List<Func<MODMixerChannel, bool>> effectsE		= new List<Func<MODMixerChannel, bool>>();
+		private List<Func<MOD_MixerChannel, bool>> effectsE		= new List<Func<MOD_MixerChannel, bool>>();
 		private List<bool> effectsEUsed							= new List<bool>();
 
 		private WaveOutEvent waveOut							= null;
@@ -507,57 +507,57 @@ namespace ModuleSystem
 		private Task MixingTask									= null;
 
 		#region Effects
-		private bool noEffect(MODMixerChannel mc)               // no effect
+		private bool NoEffect(MOD_MixerChannel mc)               // no effect
 		{
 			return false;
 		}
-		private bool noteEffect0(MODMixerChannel mc)                // Arpeggio
+		private bool NoteEffect0(MOD_MixerChannel mc)                // Arpeggio
 		{
 			if (mc.effectArg == 0) return false;
 			mc.arpeggioCount = 0;
 			mc.arpeggioIndex = mc.noteIndex;
 			mc.arpeggioX = mc.arpeggioIndex + mc.effectArgX;
 			mc.arpeggioY = mc.arpeggioIndex + mc.effectArgY;
-			mc.arpeggioPeriod0 = ModuleConst.getNotePeriod(mc.arpeggioIndex, /*mc.currentFineTune*/ 0);
+			mc.arpeggioPeriod0 = ModuleConst.GetNotePeriod(mc.arpeggioIndex, /*mc.currentFineTune*/ 0);
 			mc.period = mc.arpeggioPeriod0;
-			mc.arpeggioPeriod1 = (mc.arpeggioX < 60) ? ModuleConst.getNotePeriod(mc.arpeggioX, /*mc.currentFineTune*/ 0) : mc.arpeggioPeriod0;
-			mc.arpeggioPeriod2 = (mc.arpeggioY < 60) ? ModuleConst.getNotePeriod(mc.arpeggioY, /*mc.currentFineTune*/ 0) : mc.arpeggioPeriod0;
+			mc.arpeggioPeriod1 = (mc.arpeggioX < 60) ? ModuleConst.GetNotePeriod(mc.arpeggioX, /*mc.currentFineTune*/ 0) : mc.arpeggioPeriod0;
+			mc.arpeggioPeriod2 = (mc.arpeggioY < 60) ? ModuleConst.GetNotePeriod(mc.arpeggioY, /*mc.currentFineTune*/ 0) : mc.arpeggioPeriod0;
 			return true;
 		}
-		private bool noteEffect1(MODMixerChannel mc)                // Slide up (Portamento Up)
+		private bool NoteEffect1(MOD_MixerChannel mc)                // Slide up (Portamento Up)
 		{
-			mc.portamentoStart = mc.period;
-			mc.portamentoStep = -mc.effectArg;
+			mc.portamentoStart = (int)mc.period;
+			mc.portamentoStep = -(int)mc.effectArg;
 			return true;
 		}
-		private bool noteEffect2(MODMixerChannel mc)             // Slide down (Portamento Down)
+		private bool NoteEffect2(MOD_MixerChannel mc)             // Slide down (Portamento Down)
 		{
-			mc.portamentoStart = mc.period;
-			mc.portamentoStep = mc.effectArg;
+			mc.portamentoStart = (int)mc.period;
+			mc.portamentoStep = (int)mc.effectArg;
 			return true;
 		}
-		private bool noteEffect3(MODMixerChannel mc)             // Slide to note
+		private bool NoteEffect3(MOD_MixerChannel mc)             // Slide to note
 		{
 			if (mc.effectArg != 0)
 			{
 				mc.lastPortamentoStep = mc.portamentoStep;
-				mc.portamentoStep = (mc.portamentoStart <= mc.portamentoEnd) ? mc.effectArg : -mc.effectArg;
+				mc.portamentoStep = (mc.portamentoStart <= mc.portamentoEnd) ? (int)mc.effectArg : -(int)mc.effectArg;
 			}
 			else
 				mc.portamentoStep = mc.lastPortamentoStep;
 
 			return true;
 		}
-		private bool noteEffect4(MODMixerChannel mc)             // Vibrato
+		private bool NoteEffect4(MOD_MixerChannel mc)             // Vibrato
 		{
-			mc.vibratoStart = mc.period;
+			mc.vibratoStart = (int)mc.period;
 			mc.vibratoPeriod = mc.vibratoStart;
 			if (mc.effectArgX != 0 && mc.effectArgY != 0)
 			{
-				mc.lastVibratoFreq = mc.effectArgX;
-				mc.lastVibratoAmp = mc.effectArgY;
-				mc.vibratoFreq = mc.effectArgX;
-				mc.vibratoAmp = mc.effectArgY;
+				mc.lastVibratoFreq = (int)mc.effectArgX;
+				mc.lastVibratoAmp = (int)mc.effectArgY;
+				mc.vibratoFreq = (int)mc.effectArgX;
+				mc.vibratoAmp = (int)mc.effectArgY;
 				mc.vibratoCount = 0;
 			}
 			else
@@ -568,32 +568,32 @@ namespace ModuleSystem
 			}
 			return true;
 		}
-		private bool noteEffect5(MODMixerChannel mc)             // Continue Slide to note + Volume slide
+		private bool NoteEffect5(MOD_MixerChannel mc)             // Continue Slide to note + Volume slide
 		{
-			noteEffectA(mc);
+			NoteEffectA(mc);
 			return true;
 		}
-		private bool noteEffect6(MODMixerChannel mc)             // Continue Vibrato + Volume Slide
+		private bool NoteEffect6(MOD_MixerChannel mc)             // Continue Vibrato + Volume Slide
 		{
-			noteEffectA(mc);
+			NoteEffectA(mc);
 			mc.effectArgX = 0;
 			mc.effectArgY = 0;
-			noteEffect4(mc);
+			NoteEffect4(mc);
 			return true;
 		}
-		private bool noteEffect7(MODMixerChannel mc)             // Tremolo
+		private bool NoteEffect7(MOD_MixerChannel mc)             // Tremolo
 		{
 			mc.tremoloCount = (mc.tremoloType <= 0x03) ? 0 : mc.tremoloCount;
 			mc.tremoloStart = mc.channelVolume;
-			mc.tremoloFreq = (mc.effectArgX != 0) ? mc.effectArgX : 0;
-			mc.tremoloAmp = (mc.effectArgY != 0) ? mc.effectArgY : 0;
+			mc.tremoloFreq = (mc.effectArgX != 0) ? (int)mc.effectArgX : 0;
+			mc.tremoloAmp = (mc.effectArgY != 0) ? (int)mc.effectArgY : 0;
 			return true;
 		}
-		private bool noteEffect8(MODMixerChannel mc)             // Not Used
+		private bool NoteEffect8(MOD_MixerChannel mc)             // Not Used
 		{
 			return true;
 		}
-		private bool noteEffect9(MODMixerChannel mc)             // Set Sample Offset
+		private bool NoteEffect9(MOD_MixerChannel mc)             // Set Sample Offset
 		{
 			mc.instrumentPosition = mc.effectArg << 8;
 
@@ -605,7 +605,7 @@ namespace ModuleSystem
 
 			return true;
 		}
-		private bool noteEffectA(MODMixerChannel mc)             // Volume Slide
+		private bool NoteEffectA(MOD_MixerChannel mc)             // Volume Slide
 		{
 			mc.volumeSlideStep = 0;
 			if (mc.effectArgX != 0)
@@ -615,45 +615,45 @@ namespace ModuleSystem
 			mc.channelVolume -= mc.volumeSlideStep;
 			return true;
 		}
-		private bool noteEffectB(MODMixerChannel mc)             // Position Jump
+		private bool NoteEffectB(MOD_MixerChannel mc)             // Position Jump
 		{
 			mc.patternNumToJump = mc.effectArgX * 16 + mc.effectArgY;
 			if (mc.patternNumToJump > 0x7F) mc.patternNumToJump = 0;
 
 			currentRow = 0;
-			track = module.arrangement[mc.patternNumToJump];
-			pattern = module.patterns[module.arrangement[track]];
+			track = module.arrangement[(int)mc.patternNumToJump];
+			pattern = module.patterns[(int)module.arrangement[(int)track]];
 			return true;
 		}
-		private bool noteEffectC(MODMixerChannel mc)             // Set Volume
+		private bool NoteEffectC(MOD_MixerChannel mc)             // Set Volume
 		{
 			mc.channelVolume = (float)mc.effectArg / 0x40;
 			mc.channelVolume = (mc.channelVolume > 1.0f) ? 1.0f : mc.channelVolume;
 			return true;
 		}
-		private bool noteEffectD(MODMixerChannel mc)             // Pattern Break
+		private bool NoteEffectD(MOD_MixerChannel mc)             // Pattern Break
 		{
 			mc.positionToJump = mc.effectArgX * 10 + mc.effectArgY;
 			if (mc.positionToJump > 0x3F) mc.positionToJump = 0;
 
 			track++;
-			pattern = module.patterns[module.arrangement[track]];
+			pattern = module.patterns[(int)module.arrangement[(int)track]];
 			currentRow = mc.positionToJump;
 
 			return true;
 		}
-		private bool noteEffectE(MODMixerChannel mc)             // Extended Effects
+		private bool NoteEffectE(MOD_MixerChannel mc)             // Extended Effects
 		{
-			effectsE[mc.effectArgX](mc);
-			effectsEUsed[mc.effectArgX] = true;
+			effectsE[(int)mc.effectArgX](mc);
+			effectsEUsed[(int)mc.effectArgX] = true;
 			return true;
 		}
-		private bool noteEffectF(MODMixerChannel mc)             // SetSpeed
+		private bool NoteEffectF(MOD_MixerChannel mc)             // SetSpeed
 		{
 			if ((mc.effectArg >= 0x20) && (mc.effectArg <= 0xFF))
 			{
 				BPM = mc.effectArg;
-				setBPM();
+				SetBPM();
 			}
 			if ((mc.effectArg > 0) && (mc.effectArg <= 0x1F))
 				speed = mc.effectArg;
@@ -663,10 +663,10 @@ namespace ModuleSystem
 			return true;
 		}
 		//----------------------------------------------------------------------------------------------
-		private bool tickEffect0(MODMixerChannel mc)
+		private bool TickEffect0(MOD_MixerChannel mc)
 		{
 			if (mc.effectArg == 0) return false;
-			int arpeggioPeriod = mc.arpeggioPeriod0;
+			uint arpeggioPeriod = mc.arpeggioPeriod0;
 			arpeggioPeriod = (mc.arpeggioCount == 1) ? mc.arpeggioPeriod1 : arpeggioPeriod;
 			arpeggioPeriod = (mc.arpeggioCount == 2) ? mc.arpeggioPeriod2 : arpeggioPeriod;
 			//mc.period = arpeggioPeriod;
@@ -674,28 +674,27 @@ namespace ModuleSystem
 			mc.arpeggioCount = (mc.arpeggioCount + 1) % 4;
 			return true;
 		}
-		private bool tickEffect1(MODMixerChannel mc)
+		private bool TickEffect1(MOD_MixerChannel mc)
 		{
-			mc.period = mc.portamentoStart;
+			mc.period = (uint)mc.portamentoStart;
 			mc.periodInc = calcPeriodIncrement(mc.period);
 
 			mc.portamentoStart += mc.portamentoStep;
 			mc.portamentoStart = (mc.portamentoStart <= ModuleConst.MIN_PERIOD) ? ModuleConst.MIN_PERIOD : mc.portamentoStart;
 			return true;
 		}
-		private bool tickEffect2(MODMixerChannel mc)
+		private bool TickEffect2(MOD_MixerChannel mc)
 		{
-			mc.period = mc.portamentoStart;
+			mc.period = (uint)mc.portamentoStart;
 			mc.periodInc = calcPeriodIncrement(mc.period);
 
 			mc.portamentoStart += mc.portamentoStep;
 			mc.portamentoStart = (mc.portamentoStart >= ModuleConst.MAX_PERIOD) ? ModuleConst.MAX_PERIOD : mc.portamentoStart;
 			return true;
 		}
-		private bool tickEffect3(MODMixerChannel mc)
+		private bool TickEffect3(MOD_MixerChannel mc)
 		{
-
-			mc.period = mc.portamentoStart;
+			mc.period = (uint)mc.portamentoStart;
 			mc.periodInc = calcPeriodIncrement(mc.period);
 
 			mc.portamentoStart += mc.portamentoStep;
@@ -709,33 +708,33 @@ namespace ModuleSystem
 
 			return true;
 		}
-		private bool tickEffect4(MODMixerChannel mc)
+		private bool TickEffect4(MOD_MixerChannel mc)
 		{
 			mc.vibratoAdd = (mc.vibratoType % 4 == 0) ? ModuleConst.ModSinusTable[mc.vibratoCount] : mc.vibratoAdd;
 			mc.vibratoAdd = (mc.vibratoType % 4 == 1) ? ModuleConst.ModRampDownTable[mc.vibratoCount] : mc.vibratoAdd;
 			mc.vibratoAdd = (mc.vibratoType % 4 == 2) ? ModuleConst.ModSquareTable[mc.vibratoCount] : mc.vibratoAdd;
 			mc.vibratoAdd = (mc.vibratoType % 4 == 3) ? ModuleConst.ModRandomTable[mc.vibratoCount] : mc.vibratoAdd;
 
-			mc.periodInc = calcPeriodIncrement(mc.vibratoPeriod);
+			mc.periodInc = calcPeriodIncrement((uint)mc.vibratoPeriod);
 			mc.vibratoPeriod = mc.vibratoStart + (int)(mc.vibratoAdd * ((float)mc.vibratoAmp / 128.0f));
 			mc.vibratoPeriod = (mc.vibratoPeriod <= ModuleConst.MIN_PERIOD) ? ModuleConst.MIN_PERIOD : mc.vibratoPeriod;
 			mc.vibratoPeriod = (mc.vibratoPeriod >= ModuleConst.MAX_PERIOD) ? ModuleConst.MAX_PERIOD : mc.vibratoPeriod;
 			mc.vibratoCount = (mc.vibratoCount + mc.vibratoFreq) & 0x3F;
 			return true;
 		}
-		private bool tickEffect5(MODMixerChannel mc)
+		private bool TickEffect5(MOD_MixerChannel mc)
 		{
-			tickEffectA(mc);
-			tickEffect3(mc);
+			TickEffectA(mc);
+			TickEffect3(mc);
 			return true;
 		}
-		private bool tickEffect6(MODMixerChannel mc)
+		private bool TickEffect6(MOD_MixerChannel mc)
 		{
-			tickEffectA(mc);
-			tickEffect4(mc);
+			TickEffectA(mc);
+			TickEffect4(mc);
 			return true;
 		}
-		private bool tickEffect7(MODMixerChannel mc)
+		private bool TickEffect7(MOD_MixerChannel mc)
 		{
 			mc.tremoloAdd = (mc.tremoloType % 4 == 0) ? ModuleConst.ModSinusTable[mc.tremoloCount] : mc.tremoloAdd;
 			mc.tremoloAdd = (mc.tremoloType % 4 == 1) ? ModuleConst.ModRampDownTable[mc.tremoloCount] : mc.tremoloAdd;
@@ -748,123 +747,123 @@ namespace ModuleSystem
 			mc.tremoloCount = (mc.tremoloCount + mc.tremoloFreq) & 0x3F;
 			return true;
 		}
-		private bool tickEffect8(MODMixerChannel mc)
+		private bool TickEffect8(MOD_MixerChannel mc)
 		{
 			return true;
 		}
-		private bool tickEffect9(MODMixerChannel mc)
+		private bool TickEffect9(MOD_MixerChannel mc)
 		{
 			return true;
 		}
-		private bool tickEffectA(MODMixerChannel mc)             // Volume Slide tick
+		private bool TickEffectA(MOD_MixerChannel mc)             // Volume Slide tick
 		{
 			mc.channelVolume += mc.volumeSlideStep;
 			mc.channelVolume = (mc.channelVolume < 0.0f) ? 0.0f : mc.channelVolume;
 			mc.channelVolume = (mc.channelVolume > 1.0f) ? 1.0f : mc.channelVolume;
 			return true;
 		}
-		private bool tickEffectB(MODMixerChannel mc)
+		private bool TickEffectB(MOD_MixerChannel mc)
 		{
 			return true;
 		}
-		private bool tickEffectC(MODMixerChannel mc)
+		private bool TickEffectC(MOD_MixerChannel mc)
 		{
 			return true;
 		}
-		private bool tickEffectD(MODMixerChannel mc)
+		private bool TickEffectD(MOD_MixerChannel mc)
 		{
 			return true;
 		}
-		private bool tickEffectE(MODMixerChannel mc)
+		private bool TickEffectE(MOD_MixerChannel mc)
 		{
 			return true;
 		}
-		private bool tickEffectF(MODMixerChannel mc)
+		private bool TickEffectF(MOD_MixerChannel mc)
 		{
 			return true;
 		}
 		//----------------------------------------------------------------------------------------------
-		private bool effectE0(MODMixerChannel mc)
+		private bool EffectE0(MOD_MixerChannel mc)
 		{
 			return true;
 		}
-		private bool effectE1(MODMixerChannel mc)
+		private bool EffectE1(MOD_MixerChannel mc)
 		{
 			mc.period -= mc.effectArgY;
 			mc.period = (mc.period < ModuleConst.MIN_PERIOD) ? ModuleConst.MIN_PERIOD : mc.period;
 			mc.periodInc = calcPeriodIncrement(mc.period);
 			return true;
 		}
-		private bool effectE2(MODMixerChannel mc)
+		private bool EffectE2(MOD_MixerChannel mc)
 		{
 			mc.period += mc.effectArgY;
 			mc.period = (mc.period > ModuleConst.MAX_PERIOD) ? ModuleConst.MAX_PERIOD : mc.period;
 			mc.periodInc = calcPeriodIncrement(mc.period);
 			return true;
 		}
-		private bool effectE3(MODMixerChannel mc)
+		private bool EffectE3(MOD_MixerChannel mc)
 		{
 			return true;
 		}
-		private bool effectE4(MODMixerChannel mc)
+		private bool EffectE4(MOD_MixerChannel mc)
 		{
 			mc.vibratoType = mc.effectArgY & 0x7;
 			return true;
 		}
-		private bool effectE5(MODMixerChannel mc)
+		private bool EffectE5(MOD_MixerChannel mc)
 		{
-			mc.currentFineTune = mc.effectArgY;
+			mc.currentFineTune = (int)mc.effectArgY;
 			return true;
 		}
-		private bool effectE6(MODMixerChannel mc)
+		private bool EffectE6(MOD_MixerChannel mc)
 		{
 			return true;
 		}
-		private bool effectE7(MODMixerChannel mc)
+		private bool EffectE7(MOD_MixerChannel mc)
 		{
 			mc.tremoloType = mc.effectArgY & 0x7;
 			return true;
 		}
-		private bool effectE8(MODMixerChannel mc)
+		private bool EffectE8(MOD_MixerChannel mc)
 		{
 			return true;
 		}
-		private bool effectE9(MODMixerChannel mc)                // Retrigger Sample
+		private bool EffectE9(MOD_MixerChannel mc)                // Retrigger Sample
 		{
 			return true;
 		}
-		private bool effectEA(MODMixerChannel mc)                // Fine Volume Slide Up
+		private bool EffectEA(MOD_MixerChannel mc)                // Fine Volume Slide Up
 		{
 			mc.effect = 0x0A;
 			mc.volumeSlideStep = (float)mc.effectArgY / 0x40;
 			return true;
 		}
-		private bool effectEB(MODMixerChannel mc)                // Fine Volume Slide Down
+		private bool EffectEB(MOD_MixerChannel mc)                // Fine Volume Slide Down
 		{
 			mc.effect = 0x0A;
 			mc.volumeSlideStep = -(float)mc.effectArgY / 0x40;
 			return true;
 		}
-		private bool effectEC(MODMixerChannel mc)                // Cut Sample
+		private bool EffectEC(MOD_MixerChannel mc)                // Cut Sample
 		{
 			return true;
 		}
-		private bool effectED(MODMixerChannel mc)
+		private bool EffectED(MOD_MixerChannel mc)
 		{
 			return true;
 		}
-		private bool effectEE(MODMixerChannel mc)                // Delay
+		private bool EffectEE(MOD_MixerChannel mc)                // Delay
 		{
 			patternDelay = mc.effectArgY;
 			return true;
 		}
-		private bool effectEF(MODMixerChannel mc)
+		private bool EffectEF(MOD_MixerChannel mc)
 		{
 			return true;
 		}
 		//----------------------------------------------------------------------------------------------
 		#endregion
-		public MODMixer(MODModule module)
+		public MOD_Mixer(MOD_Module module)
 		{
 			this.module = module;
 			for (int i = 0; i < 16; i++)
@@ -877,65 +876,65 @@ namespace ModuleSystem
 			/*
 			for (int i = 0; i < 16; i++)
             {
-				noteEffects.Add(noEffect);
-				tickEffects.Add(noEffect);
-				effectsE.Add(noEffect);
+				NoteEffects.Add(NoEffect);
+				TickEffects.Add(NoEffect);
+				effectsE.Add(NoEffect);
 			}
 			return; // without effects;
 			*/
 
-			noteEffects.Add(noteEffect0);               // 0. ARPEGGIO
-			noteEffects.Add(noteEffect1);               // 1. PORTAMENTO UP 
-			noteEffects.Add(noteEffect2);               // 2. PORTAMENTO DOWN
-			noteEffects.Add(noteEffect3);               // 3. TONE PORTAMENTO
-			noteEffects.Add(noteEffect4);               // 4. VIBRATO
-			noteEffects.Add(noteEffect5);               // 5. TONE PORTAMENTO + VOLUME SLIDE
-			noteEffects.Add(noteEffect6);               // 6. VIBRATO + VOLUME SLIDE
-			noteEffects.Add(noteEffect7);               // 7. TREMOLO
-			noteEffects.Add(/*noteEffect8*/noEffect);   // 8. PAN
-			noteEffects.Add(/*noteEffect9*/noEffect);   // 9. SAMPLE OFFSET
-			noteEffects.Add(noteEffectA);               // A. VOLUME SLIDE
-			noteEffects.Add(/*noteEffectB*/noEffect);   // B. POSITION JUMP
-			noteEffects.Add(noteEffectC);               // C. SET VOLUME
-			noteEffects.Add(noteEffectD);               // D. PATTERN BREAK
-			noteEffects.Add(noteEffectE);               // E. EXTEND EFFECTS
-			noteEffects.Add(noteEffectF);               // F. SET SPEED
+			noteEffects.Add(NoteEffect0);               // 0. ARPEGGIO
+			noteEffects.Add(NoteEffect1);               // 1. PORTAMENTO UP 
+			noteEffects.Add(NoteEffect2);               // 2. PORTAMENTO DOWN
+			noteEffects.Add(NoteEffect3);               // 3. TONE PORTAMENTO
+			noteEffects.Add(NoteEffect4);               // 4. VIBRATO
+			noteEffects.Add(NoteEffect5);               // 5. TONE PORTAMENTO + VOLUME SLIDE
+			noteEffects.Add(NoteEffect6);               // 6. VIBRATO + VOLUME SLIDE
+			noteEffects.Add(NoteEffect7);               // 7. TREMOLO
+			noteEffects.Add(/*NoteEffect8*/NoEffect);   // 8. PAN
+			noteEffects.Add(/*NoteEffect9*/NoEffect);   // 9. SAMPLE OFFSET
+			noteEffects.Add(NoteEffectA);               // A. VOLUME SLIDE
+			noteEffects.Add(/*NoteEffectB*/NoEffect);   // B. POSITION JUMP
+			noteEffects.Add(NoteEffectC);               // C. SET VOLUME
+			noteEffects.Add(NoteEffectD);               // D. PATTERN BREAK
+			noteEffects.Add(NoteEffectE);               // E. EXTEND EFFECTS
+			noteEffects.Add(NoteEffectF);               // F. SET SPEED
 
-			tickEffects.Add(tickEffect0);               // tick effect 0. ARPEGGIO
-			tickEffects.Add(tickEffect1);               // tick effect 1. PORTAMENTO UP 
-			tickEffects.Add(tickEffect2);               // tick effect 2. PORTAMENTO DOWN
-			tickEffects.Add(tickEffect3);               // tick effect 3. TONE PORTAMENTO
-			tickEffects.Add(tickEffect4);               // tick effect 4. VIBRATO
-			tickEffects.Add(tickEffect5);               // tick effect 5. TONE PORTAMENTO + VOLUME SLIDE
-			tickEffects.Add(tickEffect6);               // tick effect 6. VIBRATO + VOLUME SLIDE
-			tickEffects.Add(tickEffect7);               // tick effect 7. TREMOLO
-			tickEffects.Add(/*tickEffect8*/noEffect);   // tick effect 8. PAN
-			tickEffects.Add(/*tickEffect9*/noEffect);   // tick effect 9. SAMPLE OFFSET
-			tickEffects.Add(tickEffectA);               // tick effect A. VOLUME SLIDE
-			tickEffects.Add(/*tickEffectB*/noEffect);   // tick effect B. POSITION JUMP
-			tickEffects.Add(/*tickEffectC*/noEffect);   // tick effect C. SET VOLUME
-			tickEffects.Add(/*tickEffectD*/noEffect);   // tick effect D. PATTERN BREAK
-			tickEffects.Add(/*tickEffectE*/noEffect);   // tick effect E. EXTEND EFFECTS
-			tickEffects.Add(/*tickEffectF*/noEffect);   // tick effect F. SET SPEED
+			tickEffects.Add(TickEffect0);               // tick effect 0. ARPEGGIO
+			tickEffects.Add(TickEffect1);               // tick effect 1. PORTAMENTO UP 
+			tickEffects.Add(TickEffect2);               // tick effect 2. PORTAMENTO DOWN
+			tickEffects.Add(TickEffect3);               // tick effect 3. TONE PORTAMENTO
+			tickEffects.Add(TickEffect4);               // tick effect 4. VIBRATO
+			tickEffects.Add(TickEffect5);               // tick effect 5. TONE PORTAMENTO + VOLUME SLIDE
+			tickEffects.Add(TickEffect6);               // tick effect 6. VIBRATO + VOLUME SLIDE
+			tickEffects.Add(TickEffect7);               // tick effect 7. TREMOLO
+			tickEffects.Add(/*TickEffect8*/NoEffect);   // tick effect 8. PAN
+			tickEffects.Add(/*TickEffect9*/NoEffect);   // tick effect 9. SAMPLE OFFSET
+			tickEffects.Add(TickEffectA);               // tick effect A. VOLUME SLIDE
+			tickEffects.Add(/*TickEffectB*/NoEffect);   // tick effect B. POSITION JUMP
+			tickEffects.Add(/*TickEffectC*/NoEffect);   // tick effect C. SET VOLUME
+			tickEffects.Add(/*TickEffectD*/NoEffect);   // tick effect D. PATTERN BREAK
+			tickEffects.Add(/*TickEffectE*/NoEffect);   // tick effect E. EXTEND EFFECTS
+			tickEffects.Add(/*TickEffectF*/NoEffect);   // tick effect F. SET SPEED
 
-			effectsE.Add(/*effectE0*/noEffect);         // E0. SET FILTER
-			effectsE.Add(/*effectE1*/noEffect);         // E1. FINE PORTAMENTO UP
-			effectsE.Add(/*effectE2*/noEffect);         // E2. FINE PORTAMENTO DOWN
-			effectsE.Add(/*effectE3*/noEffect);         // E3. GLISSANDO CONTROL
-			effectsE.Add(/*effectE4*/noEffect);         // E4. VIBRATO WAVEFORM 
-			effectsE.Add(/*effectE5*/noEffect);         // E5. SET FINETUNE
-			effectsE.Add(/*effectE6*/noEffect);         // E6. PATTERN LOOP
-			effectsE.Add(/*effectE7*/noEffect);         // E7. TREMOLO WAVEFORM
-			effectsE.Add(/*effectE8*/noEffect);         // E8. 16 POSITION PAN
-			effectsE.Add(/*effectE9*/noEffect);         // E9. RETRIG NOTE
-			effectsE.Add(effectEA);                     // EA. FINE VOLUME SLIDE UP
-			effectsE.Add(effectEB);                     // EB. FINE VOLUME SLIDE DOWN
-			effectsE.Add(/*effectEC*/noEffect);         // EC. CUT NOTE
-			effectsE.Add(/*effectED*/noEffect);         // ED. NOTE DELAY
-			effectsE.Add(/*effectEE*/noEffect);         // EE. PATTERN DELAY
-			effectsE.Add(/*effectEF*/noEffect);         // EF. INVERT LOOP
+			effectsE.Add(/*EffectE0*/NoEffect);         // E0. SET FILTER
+			effectsE.Add(/*EffectE1*/NoEffect);         // E1. FINE PORTAMENTO UP
+			effectsE.Add(/*EffectE2*/NoEffect);         // E2. FINE PORTAMENTO DOWN
+			effectsE.Add(/*EffectE3*/NoEffect);         // E3. GLISSANDO CONTROL
+			effectsE.Add(/*EffectE4*/NoEffect);         // E4. VIBRATO WAVEFORM 
+			effectsE.Add(/*EffectE5*/NoEffect);         // E5. SET FINETUNE
+			effectsE.Add(/*EffectE6*/NoEffect);         // E6. PATTERN LOOP
+			effectsE.Add(/*EffectE7*/NoEffect);         // E7. TREMOLO WAVEFORM
+			effectsE.Add(/*EffectE8*/NoEffect);         // E8. 16 POSITION PAN
+			effectsE.Add(/*EffectE9*/NoEffect);         // E9. RETRIG NOTE
+			effectsE.Add(EffectEA);                     // EA. FINE VOLUME SLIDE UP
+			effectsE.Add(EffectEB);                     // EB. FINE VOLUME SLIDE DOWN
+			effectsE.Add(/*EffectEC*/NoEffect);         // EC. CUT NOTE
+			effectsE.Add(/*EffectED*/NoEffect);         // ED. NOTE DELAY
+			effectsE.Add(/*EffectEE*/NoEffect);         // EE. PATTERN DELAY
+			effectsE.Add(/*EffectEF*/NoEffect);         // EF. INVERT LOOP
 		}
-		private void resetChannelInstrument(MODMixerChannel mc)
+		private void ResetChannelInstrument(MOD_MixerChannel mc)
 		{
 			mc.instrumentPosition = 2;
 			mc.instrumentLength = mc.instrument.length;
@@ -949,13 +948,13 @@ namespace ModuleSystem
 			mc.tremoloCount = 0;
 			mc.arpeggioCount = 0;
 		}
-		private void updateNote()
+		private void UpdateNote()
 		{
 			patternDelay = 0;
-			for (int ch = 0; ch < module.nChannels; ch++)
+			for (int ch = 0; ch < module.numberOfChannels; ch++)
 			{
-				MODMixerChannel mc = mixChannels[ch];
-				MODPatternChannel pe = pattern.patternRows[currentRow].patternChannels[ch];
+				MOD_MixerChannel mc = mixChannels[ch];
+				MOD_PatternChannel pe = pattern.patternRows[(int)currentRow].patternChannels[ch];
 
 				mc.patternChannel = pe;
 				mc.effect = pe.effekt;
@@ -966,35 +965,35 @@ namespace ModuleSystem
 				if (pe.instrument > 0 && pe.period > 0)
 				{
 					mc.lastInstrument = mc.instrument;
-					mc.instrument = module.instruments[pe.instrument - 1];
-					resetChannelInstrument(mc);
+					mc.instrument = module.instruments[(int)pe.instrument - 1];
+					ResetChannelInstrument(mc);
 					mc.channelVolume = mc.instrument.volume;
-					mc.portamentoStart = mc.period;
-					mc.noteIndex = ModuleConst.getNoteIndexForPeriod(pe.period);
-					mc.period = ModuleConst.getNotePeriod(mc.noteIndex, mc.currentFineTune);
-					mc.portamentoEnd = mc.period;
+					mc.portamentoStart = (int)mc.period;
+					mc.noteIndex = ModuleConst.GetNoteIndexForPeriod((int)pe.period);
+					mc.period = ModuleConst.GetNotePeriod(mc.noteIndex, mc.currentFineTune);
+					mc.portamentoEnd = (int)mc.period;
 					mc.periodInc = calcPeriodIncrement(mc.period);
 				}
 
-				if (pe.instrument > 0 && pe.period == 0 && module.instruments[pe.instrument - 1] != mc.lastInstrument)
+				if (pe.instrument > 0 && pe.period == 0 && module.instruments[(int)pe.instrument - 1] != mc.lastInstrument)
 				{
 					mc.lastInstrument = mc.instrument;
-					mc.instrument = module.instruments[pe.instrument - 1];
-					resetChannelInstrument(mc);
+					mc.instrument = module.instruments[(int)pe.instrument - 1];
+					ResetChannelInstrument(mc);
 					mc.channelVolume = mc.instrument.volume;
 				}
 
-				if (pe.instrument > 0 && pe.period == 0 && module.instruments[pe.instrument - 1] == mc.lastInstrument)
+				if (pe.instrument > 0 && pe.period == 0 && module.instruments[(int)pe.instrument - 1] == mc.lastInstrument)
 					mc.channelVolume = mc.instrument.volume;
 
 				if (pe.instrument == 0 && pe.period > 0)
 				{
-					mc.portamentoStart = mc.period;
-					mc.noteIndex = ModuleConst.getNoteIndexForPeriod(pe.period);
-					mc.period = ModuleConst.getNotePeriod(mc.noteIndex, mc.currentFineTune);
-					mc.portamentoEnd = mc.period;
+					mc.portamentoStart = (int)mc.period;
+					mc.noteIndex = ModuleConst.GetNoteIndexForPeriod((int)pe.period);
+					mc.period = ModuleConst.GetNotePeriod(mc.noteIndex, mc.currentFineTune);
+					mc.portamentoEnd = (int)mc.period;
 					mc.periodInc = calcPeriodIncrement(mc.period);
-					resetChannelInstrument(mc);
+					ResetChannelInstrument(mc);
 				}
 			}
 
@@ -1014,49 +1013,45 @@ namespace ModuleSystem
 					//    pattern = module.patterns[module.arrangement[track]];
 					//}
 				}
-				else pattern = module.patterns[module.arrangement[track]];
+				else pattern = module.patterns[(int)module.arrangement[(int)track]];
 			}
 		}
-		private void updateNoteEffects()
+		private void UpdateNoteEffects()
 		{
-			for (int ch = 0; ch < module.nChannels; ch++)
+			for (int ch = 0; ch < module.numberOfChannels; ch++)
 			{
-				noteEffects[mixChannels[ch].effect](mixChannels[ch]);
-				if (mixChannels[ch].effect == 0 && mixChannels[ch].effectArg != 0)
-					noteEffectsUsed[0] = true;
-				if (mixChannels[ch].effect != 0)
-					noteEffectsUsed[mixChannels[ch].effect] = true;
+				noteEffects[(int)mixChannels[ch].effect](mixChannels[ch]);
+				if (mixChannels[ch].effect == 0 && mixChannels[ch].effectArg != 0) noteEffectsUsed[0] = true;
+				if (mixChannels[ch].effect != 0) noteEffectsUsed[(int)mixChannels[ch].effect] = true;
 			}
 		}
-		private void updateTickEffects()
+		private void UpdateTickEffects()
 		{
-			for (int ch = 0; ch < module.nChannels; ch++)
+			for (int ch = 0; ch < module.numberOfChannels; ch++)
 			{
-				tickEffects[mixChannels[ch].effect](mixChannels[ch]);
-				if (mixChannels[ch].effect == 0 && mixChannels[ch].effectArg != 0)
-					tickEffectsUsed[0] = true;
-				if (mixChannels[ch].effect != 0)
-					tickEffectsUsed[mixChannels[ch].effect] = true;
+				tickEffects[(int)mixChannels[ch].effect](mixChannels[ch]);
+				if (mixChannels[ch].effect == 0 && mixChannels[ch].effectArg != 0) tickEffectsUsed[0] = true;
+				if (mixChannels[ch].effect != 0) tickEffectsUsed[(int)mixChannels[ch].effect] = true;
 			}
 		}
-		private void setBPM()
+		private void SetBPM()
 		{
 			mixerPosition = 0;
 			samplesPerTick = calcSamplesPerTick(BPM);
 		}
-		private void updateBPM()
+		private void UpdateBPM()
 		{
 			if (counter >= ((1 + patternDelay) * speed))
 			{
 				counter = 0;
-				updateNote();
-				updateNoteEffects();
-				updateTickEffects();
+				UpdateNote();
+				UpdateNoteEffects();
+				UpdateTickEffects();
 			}
-			else updateTickEffects();
+			else UpdateTickEffects();
 			counter++;
 		}
-		private void initModule(int startPosition = 0)
+		private void InitModule(uint startPosition = 0)
 		{
 			track = startPosition;
 			counter = 0;
@@ -1064,24 +1059,24 @@ namespace ModuleSystem
 			samplesPerTick = 0;
 			mixerPosition = 0;
 			currentRow = 0;
-			pattern = module.patterns[module.arrangement[track]];
+			pattern = module.patterns[(int)module.arrangement[(int)track]];
 			BPM = module.BPM;
 			speed = module.tempo;
 			moduleEnd = false;
 
 			mixChannels.Clear();
-			for (int ch = 0; ch < module.nChannels; ch++)
+			for (int ch = 0; ch < module.numberOfChannels; ch++)
 			{
-				MODMixerChannel mc = new MODMixerChannel();
+				MOD_MixerChannel mc = new MOD_MixerChannel();
 				mc.instrument = module.instruments[0];
 				mc.lastInstrument = module.instruments[0];
 				mixChannels.Add(mc);
 			}
 		}
-		public void playModule(int startPosition = 0)
+		public void PlayModule(uint startPosition = 0)
 		{
 			playing = false;
-			initModule(startPosition);
+			InitModule(startPosition);
 
 			waveOut?.Stop();
 			MixingTask?.Wait();
@@ -1093,7 +1088,7 @@ namespace ModuleSystem
 
 			waveStream = new ModuleSoundStream(ModuleConst.SOUNDFREQUENCY, ModuleConst.MIX_CHANNELS == ModuleConst.STEREO);
 			waveOut = new WaveOutEvent();
-			mixData();
+			MixData();
 
 			playing = true;
 			waveReader = new WaveFileReader(waveStream);
@@ -1104,7 +1099,7 @@ namespace ModuleSystem
 			{
 				while ((!moduleEnd) && playing)
 				{
-					mixData();
+					MixData();
 					while (waveStream.QueueLength > ModuleConst.MIX_WAIT && playing)
 					{
 						Thread.Sleep(100);
@@ -1123,11 +1118,11 @@ namespace ModuleSystem
 			playing = false;
 			waveOut.Stop();
 		}
-		private float getSampleValueSimple(MODMixerChannel mc)
+		private float GetSampleValueSimple(MOD_MixerChannel mc)
 		{
 			return mc.instrument.instrumentData[(int)mc.instrumentPosition] * mc.channelVolume;
 		}
-		private float getSampleValueLinear(MODMixerChannel mc)
+		private float GetSampleValueLinear(MOD_MixerChannel mc)
 		{
 			int posInt = (int)mc.instrumentPosition;
 			float posReal = mc.instrumentPosition - posInt;
@@ -1136,7 +1131,7 @@ namespace ModuleSystem
 			float a2 = mc.instrument.instrumentData[posInt + 1];
 			return (a1 + (a2 - a1) * posReal) * mc.channelVolume;
 		}
-		private float getSampleValueSpline(MODMixerChannel mc)
+		private float GetSampleValueSpline(MOD_MixerChannel mc)
 		{
 			int posInt = (int)mc.instrumentPosition;
 			float posReal = mc.instrumentPosition - posInt;
@@ -1152,19 +1147,19 @@ namespace ModuleSystem
 			float b3 = -a1 + a2 + a2 + a2 - a3 - a3 - a3 + a4;
 			return (((b3 * posReal * 0.1666666f + b2 * 0.5f) * posReal + b1 * 0.5f) * posReal + b0 * 0.1666666f) * mc.channelVolume;
 		}
-		private void mixData()
+		private void MixData()
 		{
 			//var startTime = System.Diagnostics.Stopwatch.StartNew();
 			//*
-			string ms = " channels " + module.nChannels + " ";
+			string ms = " channels " + module.numberOfChannels + " ";
 			for (int pos = 0; pos < ModuleConst.MIX_LEN; pos++)
 			{
 				float mixValueR = 0;
 				float mixValueL = 0;
 				float mixValue = 0;
-				for (int ch = 0; ch < module.nChannels; ch++)
+				for (int ch = 0; ch < module.numberOfChannels; ch++)
 				{
-					MODMixerChannel mc = mixChannels[ch];
+					MOD_MixerChannel mc = mixChannels[ch];
 					//if (ch != 1) mc.muted = true;
 					if (!mc.muted)
 					{
@@ -1176,9 +1171,9 @@ namespace ModuleSystem
 
 						if (mc.instrumentPosition < mc.instrumentLength)
 						{
-							mixValue += getSampleValueSimple(mc);
-							//mixValue += getSampleValueLinear(mc);
-							//mixValue += getSampleValueSpline(mc);
+							mixValue += GetSampleValueSimple(mc);
+							//mixValue += GetSampleValueLinear(mc);
+							//mixValue += GetSampleValueSpline(mc);
 							if (ModuleConst.MIX_CHANNELS == ModuleConst.STEREO)
 							{
 								mixValueL += (((ch & 0x03) == 0) || ((ch & 0x03) == 3)) ? mixValue : 0;
@@ -1189,11 +1184,11 @@ namespace ModuleSystem
 					mc.instrumentPosition += mc.periodInc;
 				}
 				if (ModuleConst.MIX_CHANNELS != ModuleConst.STEREO)
-					mixValue /= module.nChannels;
+					mixValue /= module.numberOfChannels;
 				else
 				{
-					mixValueL /= (module.nChannels << 1);
-					mixValueR /= (module.nChannels << 1);
+					mixValueL /= (module.numberOfChannels << 1);
+					mixValueR /= (module.numberOfChannels << 1);
 				}
 
 				if (ModuleConst.MIX_CHANNELS != ModuleConst.STEREO)
@@ -1207,8 +1202,8 @@ namespace ModuleSystem
 				mixerPosition++;
 				if (mixerPosition >= samplesPerTick)
 				{
-					setBPM();
-					updateBPM();
+					SetBPM();
+					UpdateBPM();
 				}
 			}
 			//*/

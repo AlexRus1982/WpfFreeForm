@@ -45,8 +45,8 @@ namespace WpfFreeFormModulePlayer
             OpenFileDialog openFileDialog = new OpenFileDialog();
             openFileDialog.Title = "Browse MOD Files";
             //openFileDialog.InitialDirectory = "D:\\Progs\\music";
-            openFileDialog.InitialDirectory = "d:\\!\\AS3_MOD_work2\\music\\mod\\";
-            openFileDialog.Filter = "MOD Sound Files (*.mod)|*.mod|XM Sound Files (*.XM)|*.xm";
+            openFileDialog.InitialDirectory = @"d:\!\AS3_MOD_work2\music\xm\";
+            openFileDialog.Filter = "Module music (*.mod, *.xm)|*.mod;*.xm|MOD Sound Files (*.mod)|*.mod|XM Sound Files (*.XM)|*.xm";
             openFileDialog.FilterIndex = 1;
             openFileDialog.RestoreDirectory = true;
 

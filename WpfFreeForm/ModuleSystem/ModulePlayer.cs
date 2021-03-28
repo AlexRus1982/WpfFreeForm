@@ -21,17 +21,18 @@ namespace ModuleSystem
         }
         public ModulePlayer()
         {
-            libModules.Add(new MODModule());
+            libModules.Add(new MOD_Module());
+            libModules.Add(new XM_Module());
         }
         public bool OpenFromStream(Stream stream)
         {
             module?.Dispose();
             for (int i = 0; i < libModules.Count; i++)
-                if (libModules[i].checkFormat(stream))
+                if (libModules[i].CheckFormat(stream))
                     module = libModules[i];
 
-            module?.readFromStream(stream);
-            DebugMes(module.ToString());
+            module?.ReadFromStream(stream);
+            DebugMes(module?.ToString());
             return true;
         }
         public bool OpenFromFile(string fileName)
