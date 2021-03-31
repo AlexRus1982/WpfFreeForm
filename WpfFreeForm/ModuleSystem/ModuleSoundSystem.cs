@@ -21,6 +21,7 @@ namespace ModuleSystem
             sampleQueue = new ConcurrentQueue<byte>();
             WriteWavHeader(sampleRate, stereo);
         }
+
         /// <summary>
         /// Write audio short sample -32768..32767 into stream
         /// </summary>
@@ -33,10 +34,12 @@ namespace ModuleSystem
             if (sampleQueue.Count >= preloadSize)
                 dataAvailableSignaler.Set();
         }
+        
         public int Buffered
         {
             get { return sampleQueue.Count; }
         }
+        
         public override int Read(byte[] buffer, int offset, int count)
         {
             if (position >= Length)
@@ -57,6 +60,7 @@ namespace ModuleSystem
 
             return res;
         }
+        
         #region WAV header
         /// <summary>
         /// Write wave header in start of wave stream with sampleRate frequency

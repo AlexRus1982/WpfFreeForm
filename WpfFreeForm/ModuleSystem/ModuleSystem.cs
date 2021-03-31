@@ -4,10 +4,11 @@ using System.IO;
 namespace ModuleSystem
 {
     /// <summary>
-    /// ModuleConst describe all constants value
+    /// ModuleConst describe useful constant values
     /// </summary>
-    public static class ModuleConst
+    public static class ModuleConst 
     {
+        
         public const string VERSION                 = "V1.0";
         public const string PROGRAM                 = "Sound module player";
         public const string COPYRIGHT               = "Copyright by Alex 2020";
@@ -28,13 +29,14 @@ namespace ModuleSystem
         public const int MIX_WAIT                   = MIX_LEN * 2;
         public const int MIX_CHANNELS               = MONO;
 
-        public const float AMIGA_FREQUENCY          = 7093789.2f * 0.5f; //7093789.2f 7159090.5f
+        public const float AMIGA_FREQUENCY          = 7093789.2f; //7093789.2f 7159090.5f
+        public const float HALF_AMIGA_FREQUENCY     = AMIGA_FREQUENCY * 0.5f; //7093789.2f 7159090.5f
         public const int NORM_MAX_PERIOD            = 856;
         public const int NORM_MIN_PERIOD            = 113;
         public const int EXT_MAX_PERIOD             = 1712;
-        public const int EXT_MIN_PERIOD             = 56;
-        public const int MAX_PERIOD                 = EXT_MAX_PERIOD;
-        public const int MIN_PERIOD                 = EXT_MIN_PERIOD;
+        public const int EXT_MIN_PERIOD             = 57;
+        public const int MAX_PERIOD                 = NORM_MAX_PERIOD;
+        public const int MIN_PERIOD                 = NORM_MIN_PERIOD;
         public const int BASEFREQUENCY              = 8363;
         public const int BASEPERIOD                 = 428;
         public const int MAXVOLUME                  = 64;
@@ -182,6 +184,7 @@ namespace ModuleSystem
             216 , 203 , 192 , 181 , 171 , 161 , 152 , 144 , 136 , 128 , 121 , 114,
             108 , 101 , 96  , 90  , 85  , 80  , 76  , 72  , 68  , 64  , 60  , 57 }
         };
+        
         public static string GetNoteNameToIndex(int index)
         {
             //if (index < -1) return "---";
@@ -189,6 +192,7 @@ namespace ModuleSystem
             if (index == 97) return "==="; // Note cut value
             return (noteStrings[index % 12] + ((int)(index / 12) + 3));
         }
+        
         public static uint GetNoteIndexForPeriod(int period)
         {
             if (period == 0) return 0;      // No Note
@@ -209,6 +213,7 @@ namespace ModuleSystem
             }
             return note;
         }
+        
         public static uint GetNoteFreq(int note, int finetune)
         {
             //float period = 1920 - (note + 14) * 16 - finetune / 8;
@@ -216,29 +221,34 @@ namespace ModuleSystem
             uint frequency = ModuleConst.PERIOD_TABLE[finetune, note];
             return frequency;
         }
+        
         public static uint GetNotePeriod(uint note, int finetune)
         {
             //int frequency = GetNoteFreq(note, finetune);
             //return (int)(ModuleConst.AMIGA_FREQUENCY / frequency);
             return ModuleConst.PERIOD_TABLE[finetune, note];
         }
-    }
+
+    } // end of class ModuleConst
 
     /// <summary>
-    /// ModuleUtils some usefull functions
+    /// ModuleUtils some useful functions
     /// </summary>
-    public static class ModuleUtils
+    public static class ModuleUtils 
     {
+        
         public static string GetAsHex(uint value, uint digits)
         {
             string hex = value.ToString("X" + digits.ToString());
             return hex;
         }
+        
         public static string GetAsDec(int value, int digits)
         {
             string dec = value.ToString("D" + digits.ToString());
             return dec;
         }
+
         public static string ReadString0(Stream stream, int len)
         {
             string res = "";
@@ -251,12 +261,14 @@ namespace ModuleSystem
             }
             return res;
         }
+
         public static ushort ReadWord(Stream stream)
         {
             byte[] data = new byte[2];
             stream.Read(data, 0, 2);
             return BitConverter.ToUInt16(data, 0);
         }
+
         public static ushort ReadWordSwap(Stream stream)
         {
             byte[] data = new byte[2];
@@ -264,31 +276,36 @@ namespace ModuleSystem
             Array.Reverse(data);
             return BitConverter.ToUInt16(data, 0);
         }
+
         public static uint ReadDWord(Stream stream)
         {
             uint b1 = ReadWord(stream);
             uint b2 = ReadWord(stream);
             return b1 + b2 * 65536;
         }
+
         public static byte ReadByte(Stream stream)
         {
             byte[] b = new byte[1];
             stream.Read(b);
             return b[0];
         }
+
         public static int ReadSignedByte(Stream stream)
         {
             byte[] b = new byte[1];
             stream.Read(b);
             return ((b[0] & 0x80) == 0) ? b[0] : b[0] - 256;
         }
-    }
+
+    } // end of class ModuleUtils
 
     /// <summary>
-    /// MixerChannel data description
+    /// MixerChannel data description used in sound mix process
     /// </summary>
-    public class ModuleMixerChannel
+    public class ModuleMixerChannel 
     {
+
         public bool muted = false;
 
         public uint effect = 0;
@@ -343,20 +360,22 @@ namespace ModuleSystem
         public uint period = 0;
         public float periodInc = 0;
         public float instrumentPosition = 2;
+        public int instrumentDirection = 1;
         public int loopType = ModuleConst.LOOP_ON;
-        public bool instrumentLoopStart = false;
-        public float instrumentRepeatStart = 0;
-        public float instrumentRepeatStop = 0;
+        public float instrumentLoopStart = 0;
+        public float instrumentLoopEnd = 0;
         public int instrumentLength = 0;
         public float instrumentVolume = 1.0f;
         public float channelVolume = 1.0f;
-    }
+
+    } // end of class ModuleMixerChannel
 
     /// <summary>
     /// ModuleMixer the main class where sound created
     /// </summary>
-    public class ModuleMixer
+    public class ModuleMixer 
     {
+
         protected bool playing              = false;
         protected bool moduleEnd            = false;
         protected bool pattEnd              = false;
@@ -370,14 +389,17 @@ namespace ModuleSystem
         protected uint currentRow           = 0;
         protected uint track                = 0;
         protected bool mixLoop              = true;
+        
         public ModuleMixer()
         {
         }
-        public uint calcSamplesPerTick(uint currentBPM)
+
+        public uint CalcSamplesPerTick(uint currentBPM)
         {
             return (currentBPM <= 0) ? 0 : (uint)(ModuleConst.SOUNDFREQUENCY * 2.5f / currentBPM);
         }
-        public float calcPeriodIncrement(uint period)
+
+        public float CalcPeriodIncrement(uint period)
         {
             return (period != 0) ? (float)ModuleConst.AMIGA_FREQUENCY / (period * ModuleConst.SOUNDFREQUENCY) : 1.0f;
         }
@@ -446,15 +468,19 @@ namespace ModuleSystem
         //    mixingBuffer.BaseStream.Seek(0, SeekOrigin.Begin);
         //    mixingBuffer.BaseStream.CopyTo(soundBuffer.BaseStream);
         //}
-        private void DebugMes(string mes)
+
+        public void DebugMes(string mes)
         {
             #if DEBUG
             System.Diagnostics.Debug.WriteLine(mes);
             #endif
         }
-    }
+
+    } // end of class ModuleMixer
+
     public class Module : IDisposable
     {
+
         protected readonly string moduleName        = "Base module";
         protected float position                    = 0;
 
@@ -477,6 +503,7 @@ namespace ModuleSystem
 
         public float baseVolume                     = 0.0f;
         public bool isAmigaLike                     = true;
+        
         public float Position
         {
             get
@@ -489,30 +516,41 @@ namespace ModuleSystem
                 RewindToPosition();
             }
         }
+
         public Module(string Name)
         {
             moduleName = Name;
         }
+
         public virtual bool CheckFormat(Stream stream)
         {
             return false;
         }
+
         public virtual bool ReadFromStream(Stream stream)
         {
             return true;
         }
+
         public virtual void RewindToPosition() { }
+       
         public virtual void Play() { }
+        
         public virtual void PlayInstrument(int num) { }
+        
         public virtual void Stop() { }
+        
         public virtual void Pause() { }
+        
         public virtual void Dispose() { }
+        
         protected void DebugMes(string mes)
         {
             #if DEBUG
             System.Diagnostics.Debug.WriteLine("Module " + moduleName + " -> " + mes);
             #endif
         }
-    }
+
+    } // end of class Module
 
 }
