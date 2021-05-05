@@ -1,14 +1,17 @@
 ﻿using System;
 using System.IO;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using NAudio.Wave;
 
-namespace ModuleSystem
-{
+namespace ModuleSystem {
+
     /// <summary>
     /// ModuleConst describe useful constant values
     /// </summary>
-    public static class ModuleConst 
-    {
-        
+    public static class ModuleConst {
+
         public const string VERSION                 = "V1.0";
         public const string PROGRAM                 = "Sound module player";
         public const string COPYRIGHT               = "Copyright by Alex 2020";
@@ -29,8 +32,8 @@ namespace ModuleSystem
         public const int MIX_WAIT                   = MIX_LEN * 2;
         public const int MIX_CHANNELS               = MONO;
 
-        public const float AMIGA_FREQUENCY          = 7093789.2f; //7093789.2f 7159090.5f
-        public const float HALF_AMIGA_FREQUENCY     = AMIGA_FREQUENCY * 0.5f; //7093789.2f 7159090.5f
+        public const float AMIGA_FREQUENCY          = 7093789.2f;                   //7093789.2f 7159090.5f
+        public const float HALF_AMIGA_FREQUENCY     = AMIGA_FREQUENCY * 0.5f;       //7093789.2f 7159090.5f
         public const int NORM_MAX_PERIOD            = 856;
         public const int NORM_MIN_PERIOD            = 113;
         public const int EXT_MAX_PERIOD             = 1712;
@@ -40,49 +43,43 @@ namespace ModuleSystem
         public const int BASEFREQUENCY              = 8363;
         public const int BASEPERIOD                 = 428;
         public const int MAXVOLUME                  = 64;
-        public const int SM_16BIT                   = 0x04;   // 16 BIT
-        public const int SM_STEREO                  = 0x08;  // STEREO
-        public const int SOUND_AMP                  = 32767;  // MAX SOUND AMP -32768..32767
+        public const int SM_16BIT                   = 0x04;     // 16 BIT
+        public const int SM_STEREO                  = 0x08;     // STEREO
+        public const int SOUND_AMP                  = 32767;    // MAX SOUND AMP -32768..32767
 
-        public static string[] noteStrings =
-        {
+        public static string[] noteStrings = {
              "C-", "C#", "D-", "D#", "E-", "F-", "F#", "G-", "G#", "A-", "A#", "B-"
         };
 
-        public static int[] ModSinusTable =
-        {
+        public static int[] ModSinusTable = {
                0,   24,   49,   74,   97,  120,  141,  161,  180,  197,  212,  224,  235,  244,  250,  253,
              255,  253,  250,  244,  235,  224,  212,  197,  180,  161,  141,  120,   97,   74,   49,   24,
                0,  -24,  -49,  -74,  -97, -120, -141, -161, -180, -197, -212, -224, -235, -244, -250, -253,
             -255, -253, -250, -244, -235, -224, -212, -197, -180, -161, -141, -120,  -97,  -74,  -49,  -24
         };
 
-        public static int[] ModRampDownTable =
-        {
+        public static int[] ModRampDownTable = {
                0,   -8,  -16,  -24,  -32,  -40,  -48,  -56,  -64,  -72,  -80,  -88,  -96, -104, -112, -120,
             -128, -136, -144, -152, -160, -168, -176, -184, -192, -200, -208, -216, -224, -232, -240, -248,
              255,  247,  239,  231,  223,  215,  207,  199,  191,  183,  175,  167,  159,  151,  143,  135,
              127,  119,  113,  103,   95,   87,   79,   71,   63,   55,   47,   39,   31,   23,   15,    7
         };
 
-        public static int[] ModSquareTable =
-        {
+        public static int[] ModSquareTable = {
              255,  255,  255,  255,  255,  255,  255,  255,  255,  255,  255,  255,  255,  255,  255,  255,
              255,  255,  255,  255,  255,  255,  255,  255,  255,  255,  255,  255,  255,  255,  255,  255,
             -255, -255, -255, -255, -255, -255, -255, -255, -255, -255, -255, -255, -255, -255, -255, -255,
             -255, -255, -255, -255, -255, -255, -255, -255, -255, -255, -255, -255, -255, -255, -255, -255
         };
 
-        public static int[] ModRandomTable =
-        {
+        public static int[] ModRandomTable = {
              196, -254,  -86,  176,  204,   82, -130, -188,  250,   40, -142, -172, -140,  -64,  -32, -192,
               34,  144,  214,  -10,  232, -138, -124,  -80,   20, -122,  130,  218,  -36,  -76,  -26, -152,
              -46,  176,   42, -188,   16,  212,   42, -224,   12,  218,   40, -176,  -60,   18, -254,  236,
               84,  -68,  178,   -8, -102, -144,   42,  -58,  224,  246,  168, -202, -184,  196, -108, -190
         };
 
-        public static int[] ft2VibratoTable =
-        {
+        public static int[] ft2VibratoTable = {
               0,  -2,  -3,  -5,  -6,  -8,  -9, -11, -12, -14, -16, -17, -19, -20, -22, -23,
             -24, -26, -27, -29, -30, -32, -33, -34, -36, -37, -38, -39, -41, -42, -43, -44,
             -45, -46, -47, -48, -49, -50, -51, -52, -53, -54, -55, -56, -56, -57, -58, -59,
@@ -101,8 +98,7 @@ namespace ModuleSystem
              24,  23,  22,  20,  19,  17,  16,  14,  12,  11,   9,   8,   6,   5,   3,   2
         };
 
-        public static uint[,] PERIOD_TABLE =
-        {
+        public static uint[,] PERIOD_TABLE = {
            {1712, 1616, 1524, 1440, 1356, 1280, 1208, 1140, 1076, 1016, 960 , 906,  // Finetune +0
             856 , 808 , 762 , 720 , 678 , 640 , 604 , 570 , 538 , 508 , 480 , 453,
             428 , 404 , 381 , 360 , 339 , 320 , 302 , 285 , 269 , 254 , 240 , 226,
@@ -184,373 +180,556 @@ namespace ModuleSystem
             216 , 203 , 192 , 181 , 171 , 161 , 152 , 144 , 136 , 128 , 121 , 114,
             108 , 101 , 96  , 90  , 85  , 80  , 76  , 72  , 68  , 64  , 60  , 57 }
         };
-        
-        public static string GetNoteNameToIndex(int index)
-        {
-            //if (index < -1) return "---";
-            if (index == 0) return "...";  // No Note
-            if (index == 97) return "==="; // Note cut value
+
+        public static string GetNoteNameToIndex(int index) {
+            if (index == 0) {
+                return "...";  // No Note
+            }
+            if (index == 97) {
+                return "==="; // Note cut value
+            }
             return (noteStrings[index % 12] + ((int)(index / 12) + 3));
         }
-        
-        public static uint GetNoteIndexForPeriod(int period)
-        {
-            if (period == 0) return 0;      // No Note
-            //if (period == -1) return -1;    // Note cut value
-            uint note = 0;
-            for (uint j = 0; j < 59; j++)
-            {
+
+        public static byte GetNoteIndexForPeriod(int period) {
+            if (period == 0) {
+                return 0;      // No Note
+            }
+
+            byte note = 0;            
+            for (uint j = 0; j < 59; j++) {
                 uint period1 = GetNotePeriod(j, 0);
                 uint period2 = GetNotePeriod(j + 1, 0);
                 int diff1 = (int)(period1 - period);
                 int diff2 = (int)(period - period2);
-                if (period1 >= period && period >= period2)
-                {
-                    if (diff1 < diff2) return note;
-                    else return note + 1;
+                if (period1 >= period && period >= period2) {
+                    if (diff1 < diff2) {
+                        return note;
+                    }
+                    else {
+                        return (byte)(note + 1);
+                    }
                 }
                 note++;
             }
             return note;
         }
-        
-        public static uint GetNoteFreq(int note, int finetune)
-        {
+
+        public static uint GetNoteFreq(int note, int finetune) {
             //float period = 1920 - (note + 14) * 16 - finetune / 8;
             //int frequency = (int)(8363 * Math.Pow(2, (1152 - period) / 192));
             uint frequency = ModuleConst.PERIOD_TABLE[finetune, note];
             return frequency;
         }
-        
-        public static uint GetNotePeriod(uint note, int finetune)
-        {
+
+        public static uint GetNotePeriod(uint note, int finetune) {
             //int frequency = GetNoteFreq(note, finetune);
             //return (int)(ModuleConst.AMIGA_FREQUENCY / frequency);
             return ModuleConst.PERIOD_TABLE[finetune, note];
         }
 
-    } // end of class ModuleConst
+    }
 
     /// <summary>
     /// ModuleUtils some useful functions
     /// </summary>
-    public static class ModuleUtils 
-    {
-        
-        public static string GetAsHex(uint value, uint digits)
-        {
-            string hex = value.ToString("X" + digits.ToString());
-            return hex;
-        }
-        
-        public static string GetAsDec(int value, int digits)
-        {
-            string dec = value.ToString("D" + digits.ToString());
-            return dec;
+    public static class ModuleUtils {
+
+        public static string GetAsHex(uint value, uint digits) {
+            return value.ToString("X" + digits.ToString());
         }
 
-        public static string ReadString0(Stream stream, int len)
-        {
+        public static string GetAsDec(int value, int digits) {
+            return value.ToString("D" + digits.ToString());
+        }
+
+        public static string ReadString0(Stream stream, int len) {
             string res = "";
             bool stopString = false;
-            for (int i = 0; i < len; i++)
-            {
+            for (int i = 0; i < len; i++) {
                 int s = stream.ReadByte();
-                if (s == 0) stopString = true;
-                if (s != 0 && !stopString) res += (char)s;
+                if (s == 0) {
+                    stopString = true;
+                }
+                if (s != 0 && !stopString) {
+                    res += (char)s;
+                }
             }
             return res;
         }
 
-        public static ushort ReadWord(Stream stream)
-        {
+        public static ushort ReadWord(Stream stream) {
             byte[] data = new byte[2];
             stream.Read(data, 0, 2);
             return BitConverter.ToUInt16(data, 0);
         }
 
-        public static ushort ReadWordSwap(Stream stream)
-        {
+        public static ushort ReadWordSwap(Stream stream) {
             byte[] data = new byte[2];
             stream.Read(data, 0, 2);
             Array.Reverse(data);
             return BitConverter.ToUInt16(data, 0);
         }
 
-        public static uint ReadDWord(Stream stream)
-        {
+        public static uint ReadDWord(Stream stream) {
             uint b1 = ReadWord(stream);
             uint b2 = ReadWord(stream);
             return b1 + b2 * 65536;
         }
 
-        public static byte ReadByte(Stream stream)
-        {
+        public static byte ReadByte(Stream stream) {
             byte[] b = new byte[1];
             stream.Read(b);
             return b[0];
         }
 
-        public static int ReadSignedByte(Stream stream)
-        {
+        public static int ReadSignedByte(Stream stream) {
             byte[] b = new byte[1];
             stream.Read(b);
             return ((b[0] & 0x80) == 0) ? b[0] : b[0] - 256;
         }
 
-    } // end of class ModuleUtils
+    }
 
-    /// <summary>
-    /// MixerChannel data description used in sound mix process
-    /// </summary>
-    public class ModuleMixerChannel 
-    {
+    public class ModulePatternChannel {
 
-        public bool muted = false;
-
-        public uint effect = 0;
-        public uint effectArg = 0;
-        public uint effectArgX = 0;
-        public uint effectArgY = 0;
-
-        public int portamentoStart = 0;
-        public int portamentoEnd = 0;
-        public int portamentoStep = 0;
-        public int lastPortamentoStep = 0;
-
-        public bool volumeSlideStart = false;
-        public float volumeSlideX = 0;
-        public float volumeSlideY = 0;
-        public float volumeSlideStep = 0;
-
-        public uint patternJumpCounter = 0;
-        public uint patternNumToJump = 0;
-        public uint positionToJump = 0;
-
-        public uint arpeggioPeriod0 = 0;
-        public uint arpeggioPeriod1 = 0;
-        public uint arpeggioPeriod2 = 0;
-        public uint arpeggioCount = 0;
-        public uint arpeggioIndex = 0;
-        public uint arpeggioX = 0;
-        public uint arpeggioY = 0;
-
-        public uint vibratoType = 0;
-        public int vibratoStart = 0;
-        public int vibratoPeriod = 0;
-        public float vibratoAdd = 0;
-        public int vibratoCount = 0;
-        public int vibratoAmp = 0;
-        public int vibratoFreq = 0;
-        public int lastVibratoAmp = 0;
-        public int lastVibratoFreq = 0;
-
-        public uint tremoloType = 0;
-        public float tremoloStart = 0;
-        public int tremoloAdd = 0;
-        public int tremoloCount = 0;
-        public int tremoloAmp = 0;
-        public int tremoloFreq = 0;
-
-        public uint noteIndex = 0;
-        public bool isNote = false;
-
-        public int currentFineTune = 0;
-        public int lastFineTune = 0;
         public uint period = 0;
-        public float periodInc = 0;
-        public float instrumentPosition = 2;
-        public int instrumentDirection = 1;
-        public int loopType = ModuleConst.LOOP_ON;
-        public float instrumentLoopStart = 0;
-        public float instrumentLoopEnd = 0;
-        public int instrumentLength = 0;
-        public float instrumentVolume = 1.0f;
-        public float channelVolume = 1.0f;
+        public byte noteIndex = 0;
+        public ushort instrumentIndex = 0;
+        public uint effekt = 0;
+        public uint effektOp = 0;
+        public uint volumeEffekt = 0;
+        public uint volumeEffektOp = 0;
 
-    } // end of class ModuleMixerChannel
+    }
 
-    /// <summary>
-    /// ModuleMixer the main class where sound created
-    /// </summary>
-    public class ModuleMixer 
-    {
+    public class ModulePatternRow {
 
-        protected bool playing              = false;
-        protected bool moduleEnd            = false;
-        protected bool pattEnd              = false;
-        protected uint counter              = 0;
-        protected uint speed                = 6;
-        protected uint patternDelay         = 0;
-        protected uint BPM                  = 125;
-        protected uint maxPatternRows       = 64;
-        protected uint samplesPerTick       = 0;
-        protected uint mixerPosition        = 0;
-        protected uint currentRow           = 0;
-        protected uint track                = 0;
-        protected bool mixLoop              = true;
-        
-        public ModuleMixer()
-        {
+        public List<ModulePatternChannel> patternChannels = new List<ModulePatternChannel>();
+
+        public override string ToString() {
+            string res = "";
+            for (int i = 0; i < patternChannels.Count; i++)
+                res += patternChannels[i].ToString() + '|';
+            return res;
         }
 
-        public uint CalcSamplesPerTick(uint currentBPM)
-        {
-            return (currentBPM <= 0) ? 0 : (uint)(ModuleConst.SOUNDFREQUENCY * 2.5f / currentBPM);
+        public void Clear() {
+            patternChannels.Clear();
         }
 
-        public float CalcPeriodIncrement(uint period)
-        {
-            return (period != 0) ? (float)ModuleConst.AMIGA_FREQUENCY / (period * ModuleConst.SOUNDFREQUENCY) : 1.0f;
+    }
+
+    public class ModulePattern {
+
+        public List<ModulePatternRow> patternRows = new List<ModulePatternRow>();
+
+        public void Clear() {
+            patternRows.Clear();
         }
 
-        //public void mixModule(int startPosition = 0)
-        //{
-        //    track = startPosition;
+    }
 
-        //    pattern = module.patterns[module.arrangement[track]];
-        //    //module.BPMSpeed = 229;
-        //    //module.tempo = 5;
-        //    System.Diagnostics.Debug.WriteLine("Mixer -> " + module.BPMSpeed);
+    public class ModuleSample {
+        public uint orderNumber = 0;
+        public uint length      = 0;
+        public uint loopStart   = 0;
+        public uint loopEnd     = 0;
+        public uint loopLength  = 0;
+        public byte loopType    = 0;
+        public float volume     = 0;
+        public byte finetune    = 0;
 
-        //    mixChannels.Clear();
-        //    for (int ch = 0; ch < module.numberOfChannels; ch++)
-        //    {
-        //        ModuleMixerChannel mc = new ModuleMixerChannel();
-        //        mc.instrument = module.instruments[0];
-        //        mc.lastInstrument = module.instruments[0];
-        //        mixChannels.Add(mc);
-        //    }
+        public string name      = "";
+        public List<float> data = new List<float>();    // The sampledata, already converted to 16 bit (always)
+                                                        // 8Bit: -128 to 127; 16Bit: -32768..0..+32767
 
-        //    var startTime = System.Diagnostics.Stopwatch.StartNew();
-        //    System.Diagnostics.Debug.WriteLine("Start mixing -> ...");
-
-        //    mixingBuffer.BaseStream.SetLength(0);
-        //    mixingBuffer.BaseStream.Seek(0, SeekOrigin.Begin);
-
-        //    moduleEnd = false;
-        //    while (!moduleEnd)
-        //    {
-        //        MixData();
-        //    }
-
-        //    string usedNoteEffects  = "NoteEffects : ";
-        //    string usedTickEffects  = "TickEffects : ";
-        //    string usedEEffects     = "   EEffects : ";
-
-        //    for (int i = 0; i < 16; i++)
-        //    {
-        //        usedNoteEffects += (NoteEffectsUsed[i]) ? ModuleUtils.GetAsHex(i, 2) + " " : "";
-        //        usedTickEffects += (TickEffectsUsed[i]) ? ModuleUtils.GetAsHex(i, 2) + " " : "";
-        //        usedEEffects    += (effectsEUsed[i])    ? ModuleUtils.GetAsHex(i, 2) + " " : "";
-        //    }
-        //    System.Diagnostics.Debug.WriteLine(usedNoteEffects);
-        //    System.Diagnostics.Debug.WriteLine(usedTickEffects);
-        //    System.Diagnostics.Debug.WriteLine(usedEEffects);
-
-        //    startTime.Stop();
-        //    var resultTime = startTime.Elapsed;
-        //    string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:000}",
-        //                                        resultTime.Hours,
-        //                                        resultTime.Minutes,
-        //                                        resultTime.Seconds,
-        //                                        resultTime.Milliseconds);
-        //    System.Diagnostics.Debug.WriteLine("End mixing, time to mix = " + elapsedTime);
-        //    System.Diagnostics.Debug.WriteLine("Mixing data length = " + mixingBuffer.BaseStream.Length);
-
-        //    int secondsAll = (int)mixingBuffer.BaseStream.Length / (2 * ModuleConst.SOUNDFREQUENCY);
-        //    TimeSpan t = TimeSpan.FromSeconds(secondsAll);
-        //    System.Diagnostics.Debug.WriteLine("Mixing data music length = " + t.ToString());
-
-        //    BinaryWriter soundBuffer = soundSystem.getBuffer;
-        //    soundSystem.SetSampleRate(ModuleConst.SOUNDFREQUENCY);
-        //    soundSystem.SetBufferLen((uint)mixingBuffer.BaseStream.Length / 2);
-        //    mixingBuffer.BaseStream.Seek(0, SeekOrigin.Begin);
-        //    mixingBuffer.BaseStream.CopyTo(soundBuffer.BaseStream);
-        //}
-
-        public void DebugMes(string mes)
-        {
-            #if DEBUG
-            System.Diagnostics.Debug.WriteLine(mes);
-            #endif
+        public ModuleSample() {
         }
 
-    } // end of class ModuleMixer
+        public string ToShortString() {
+            return name;
+        }
 
-    public class Module : IDisposable
-    {
+        public virtual void readHeaderFromStream(Stream stream) {
+        }
 
-        protected readonly string moduleName        = "Base module";
-        protected float position                    = 0;
+        public virtual void readSampleDataFromStream(Stream stream) {
+        }
 
-        public string fileName                      = "";
-        public long fileLength                      = 0;
-        public string trackerName                   = "";
-        public uint version                         = 0;
-        public uint headerSize                      = 0;
-        public uint songLength                      = 0;
-        public uint songRepeatPosition              = 0;
+        public void Clear() {
+            data.Clear();
+        }
 
-        public string moduleID                      = "";
-        public string songName                      = "";
-        public uint numberOfChannels                = 0;
-        public uint numberOfInstruments             = 0;
-        public uint numberOfSamples                 = 0;
-        public uint numberOfPatterns                = 0;
-        public uint BPM                             = 125;
-        public uint tempo                           = 6;
+    }
 
-        public float baseVolume                     = 0.0f;
-        public bool isAmigaLike                     = true;
-        
-        public float Position
-        {
-            get
-            {
+    public class ModuleInstrument {
+        public uint size = 0;
+        public string name = "";
+        public uint samplesNumber = 0;
+
+        public uint headerSize = 0;
+        public List<ModuleSample> samples = new List<ModuleSample>();
+        public ModuleSample sample = null;
+
+        public ModuleInstrument() {
+        }
+
+        public override string ToString() {
+            string res = name.Trim().PadRight(22, '.');
+            if (samples.Count > 0) {
+                res += " ( sample(s) : ";
+                foreach (ModuleSample sample in samples) {
+                    res += sample.orderNumber + " ";
+                }
+                res += ")";
+            }
+            return res;
+        }
+
+        public string ToShortString() {
+            return name;
+        }
+
+        public virtual void ReadFromStream(Stream stream, ref uint sampleOrder) {
+        }
+
+        public void Clear() {
+            samples.Clear();
+        }
+
+    }
+
+    public class Module : IDisposable {
+
+        protected readonly string moduleName    = "Base module";
+        protected float position                = 0;
+
+        public string fileName                  = "";
+        public long fileLength                  = 0;
+        public string trackerName               = "";
+        public uint version                     = 0;
+        public uint headerSize                  = 0;
+        public uint songLength                  = 0;
+        public uint songRepeatPosition          = 0;
+
+        public string moduleID                  = "";
+        public string songName                  = "";
+        public uint numberOfChannels            = 0;
+        public uint numberOfInstruments         = 0;
+        public uint numberOfSamples             = 0;
+        public uint numberOfPatterns            = 0;
+        public uint BPM                         = 125;
+        public uint tempo                       = 6;
+
+        public float baseVolume                 = 0.0f;
+        public bool isAmigaLike                 = true;
+
+        public List<uint> arrangement = new List<uint>();
+        public List<ModulePattern> patterns = new List<ModulePattern>();
+
+        public float Position {
+            get {
                 return position;
             }
-            set
-            {
+            set {
                 position = value;
                 RewindToPosition();
             }
         }
 
-        public Module(string Name)
-        {
+        public virtual float InstrumentSampleData(byte instrumentNumber, uint position) {
+            return 0;
+        }
+
+        //public Instrument this[int index] {
+        //    get {
+        //        return data[index];
+        //    }
+        //    set {
+        //        data[index] = value;
+        //    }
+        //}
+
+        public virtual float InstrumentVolume(byte instrumentNumber) {
+            return 0;
+        }
+
+        public Module(string Name) {
             moduleName = Name;
         }
 
-        public virtual bool CheckFormat(Stream stream)
-        {
+        public virtual bool CheckFormat(Stream stream) {
             return false;
         }
 
-        public virtual bool ReadFromStream(Stream stream)
-        {
+        public virtual bool ReadFromStream(Stream stream) {
             return true;
         }
 
-        public virtual void RewindToPosition() { }
-       
-        public virtual void Play() { }
-        
-        public virtual void PlayInstrument(int num) { }
-        
-        public virtual void Stop() { }
-        
-        public virtual void Pause() { }
-        
-        public virtual void Dispose() { }
-        
-        protected void DebugMes(string mes)
-        {
+        public virtual void RewindToPosition() {
+        }
+
+        public virtual void Play() {
+        }
+
+        public virtual void PlayInstrument(int num) {
+        }
+
+        public virtual void Stop() {
+        }
+
+        public virtual void Pause() {
+        }
+
+        public virtual void Dispose() {
+        }
+
+        protected void DebugMes(string mes) {
             #if DEBUG
             System.Diagnostics.Debug.WriteLine("Module " + moduleName + " -> " + mes);
             #endif
         }
 
-    } // end of class Module
+    }
+ 
+    /// <summary>
+    /// MixerChannel data description used in sound mix process
+    /// </summary>
+    public class ModuleMixerChannel {
+
+        public bool muted                   = false;
+
+        public uint effect                  = 0;
+        public uint effectArg               = 0;
+        public uint effectArgX              = 0;
+        public uint effectArgY              = 0;
+
+        public int portamentoStart          = 0;
+        public int portamentoEnd            = 0;
+        public int portamentoStep           = 0;
+        public int lastPortamentoStep       = 0;
+
+        public bool volumeSlideStart        = false;
+        public float volumeSlideX           = 0;
+        public float volumeSlideY           = 0;
+        public float volumeSlideStep        = 0;
+
+        public uint patternJumpCounter      = 0;
+        public uint patternNumToJump        = 0;
+        public uint positionToJump          = 0;
+
+        public uint arpeggioPeriod0         = 0;
+        public uint arpeggioPeriod1         = 0;
+        public uint arpeggioPeriod2         = 0;
+        public uint arpeggioCount           = 0;
+        public uint arpeggioIndex           = 0;
+        public uint arpeggioX               = 0;
+        public uint arpeggioY               = 0;
+
+        public uint vibratoType             = 0;
+        public int vibratoStart             = 0;
+        public int vibratoPeriod            = 0;
+        public float vibratoAdd             = 0;
+        public int vibratoCount             = 0;
+        public int vibratoAmp               = 0;
+        public int vibratoFreq              = 0;
+        public int lastVibratoAmp           = 0;
+        public int lastVibratoFreq          = 0;
+
+        public uint tremoloType             = 0;
+        public float tremoloStart           = 0;
+        public int tremoloAdd               = 0;
+        public int tremoloCount             = 0;
+        public int tremoloAmp               = 0;
+        public int tremoloFreq              = 0;
+
+        public uint noteIndex               = 0;
+        public bool isNote                  = false;
+
+        public int currentFineTune          = 0;
+        public int lastFineTune             = 0;
+        public uint period                  = 0;
+        public float periodInc              = 0;
+        public float instrumentPosition     = 2;
+        public int instrumentDirection      = 1;
+        public int loopType                 = ModuleConst.LOOP_ON;
+        public ushort instrumentIndex       = 0;
+        public ushort instrumentLastIndex   = 0;
+        public float instrumentLoopStart    = 0;
+        public float instrumentLoopEnd      = 0;
+        public int instrumentLength         = 0;
+        public float instrumentVolume       = 1.0f;
+        public float channelVolume          = 1.0f;
+
+        public virtual void CalculateInstrumentPosition() {
+        }
+
+    }
+   
+    /// <summary>
+    /// ModuleMixer the main class where sound created
+    /// </summary>
+    public class ModuleMixer {
+
+        protected bool playing          = false;
+        protected bool moduleEnd        = false;
+        protected bool pattEnd          = false;
+        protected uint counter          = 0;
+        protected uint speed            = 6;
+        protected uint patternDelay     = 0;
+        protected uint BPM              = 125;
+        protected uint maxPatternRows   = 64;
+        protected uint samplesPerTick   = 0;
+        protected uint mixerPosition    = 0;
+        protected uint currentRow       = 0;
+        protected uint track            = 0;
+        protected bool mixLoop          = true;
+
+        protected Module module         = null;
+        protected ModulePattern pattern = null;
+
+        protected List<ModuleMixerChannel> mixChannels = new List<ModuleMixerChannel>();
+
+        protected List<Func<ModuleMixerChannel, bool>> noteEffects    = new List<Func<ModuleMixerChannel, bool>>();
+        protected List<Func<ModuleMixerChannel, bool>> tickEffects    = new List<Func<ModuleMixerChannel, bool>>();
+        protected List<Func<ModuleMixerChannel, bool>> effectsE       = new List<Func<ModuleMixerChannel, bool>>();
+
+        protected List<bool> noteEffectsUsed  = new List<bool>();
+        protected List<bool> tickEffectsUsed  = new List<bool>();
+        protected List<bool> effectsEUsed     = new List<bool>();
+
+        protected ModuleSoundStream waveStream    = null;
+        protected WaveOutEvent waveOut            = null;        
+        protected WaveFileReader waveReader       = null;
+        protected Task MixingTask                 = null;
+
+        protected bool NoEffect(ModuleMixerChannel mc)               // no effect
+        {
+            return false;
+        }
+
+        public ModuleMixer(Module module) {
+            this.module = module;
+            for (int i = 0; i < 34; i++) {
+                noteEffectsUsed.Add(false);
+                tickEffectsUsed.Add(false);
+                effectsEUsed.Add(false);
+            }
+
+            /*
+			for (int i = 0; i < 34; i++)
+            {
+				NoteEffects.Add(NoEffect);
+				TickEffects.Add(NoEffect);
+				effectsE.Add(NoEffect);
+			}
+			return; // without effects;
+			*/
+
+        }
+
+        protected void SetBPM() {
+            mixerPosition = 0;
+            samplesPerTick = CalcSamplesPerTick(BPM);
+        }
+
+        protected void NextRow() {
+            currentRow++;
+            if (currentRow >= pattern.patternRows.Count) {
+                pattEnd = true;
+                currentRow = 0;
+                track++;
+                if (track >= module.songLength) {
+                    moduleEnd = true;
+                    //if (!mixLoop) played = true;
+                    //else
+                    //{
+                    //    track = 0;
+                    //    pattern = module.patterns[module.arrangement[track]];
+                    //}
+                }
+                else {
+                    pattern = module.patterns[(int)module.arrangement[(int)track]];
+                }
+            }
+        }
+
+        public virtual uint GetNotePeriod(uint note, int fineTune) {
+            uint period = (uint)(7680 - (note + 24) * 64 - fineTune * 8);
+            return period;
+        }
+
+        public uint GetNoteFreq(uint note, int fineTune) {
+            float period = GetNotePeriod(note, fineTune);
+            float frequency = (float)(8363 * Math.Pow(2, (4608.0f - period) * 0.001302083f));
+            return (uint)(ModuleConst.HALF_AMIGA_FREQUENCY / frequency);
+        }
+
+        public float CalcPeriodIncrement(uint period) {
+            return (period != 0) ? (ModuleConst.HALF_AMIGA_FREQUENCY / period) / ModuleConst.SOUNDFREQUENCY : 1.0f;
+        }
+
+        public float CalcClampPeriodIncrement(ModuleMixerChannel mc) {
+            mc.period = (mc.period < ModuleConst.MIN_PERIOD) ? ModuleConst.MIN_PERIOD : mc.period;
+            mc.period = (mc.period > ModuleConst.MAX_PERIOD) ? ModuleConst.MAX_PERIOD : mc.period;
+            return (mc.period != 0) ? (ModuleConst.HALF_AMIGA_FREQUENCY / mc.period) / ModuleConst.SOUNDFREQUENCY : 1.0f;
+        }
+
+
+        public uint CalcSamplesPerTick(uint currentBPM) {
+            return (currentBPM <= 0) ? 0 : (uint)(ModuleConst.SOUNDFREQUENCY * 2.5f / currentBPM);
+        }
+
+        /*
+            var startTime = System.Diagnostics.Stopwatch.StartNew();
+            startTime.Stop();
+            var resultTime = startTime.Elapsed;
+            string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:000}",
+                                                resultTime.Hours,
+                                                resultTime.Minutes,
+                                                resultTime.Seconds,
+                                                resultTime.Milliseconds);
+        */
+
+        protected void UpdateNoteEffects() {
+            for (int ch = 0; ch < module.numberOfChannels; ch++) {
+                noteEffects[(int)mixChannels[ch].effect](mixChannels[ch]);
+                if (mixChannels[ch].effect == 0 && mixChannels[ch].effectArg != 0) {
+                    noteEffectsUsed[0] = true;
+                }
+                if (mixChannels[ch].effect != 0) {
+                    noteEffectsUsed[(int)mixChannels[ch].effect] = true;
+                }
+            }
+        }
+
+        protected void UpdateTickEffects() {
+            for (int ch = 0; ch < module.numberOfChannels; ch++) {
+                tickEffects[(int)mixChannels[ch].effect](mixChannels[ch]);
+                if (mixChannels[ch].effect == 0 && mixChannels[ch].effectArg != 0) {
+                    tickEffectsUsed[0] = true;
+                }
+                if (mixChannels[ch].effect != 0) {
+                    tickEffectsUsed[(int)mixChannels[ch].effect] = true;
+                }
+            }
+        }
+
+        public virtual void PlayModule(uint startPosition = 0) {
+        }
+
+        public void Stop() {
+            playing = false;
+            waveOut.Stop();
+        }
+
+        public void DebugMes(string mes) {
+            #if DEBUG
+            System.Diagnostics.Debug.WriteLine(mes);
+            #endif
+        }
+
+    }
 
 }

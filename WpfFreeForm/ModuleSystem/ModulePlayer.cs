@@ -1,82 +1,76 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 
-namespace ModuleSystem
-{
-    public class ModulePlayer 
-    {
+namespace ModuleSystem {
+    public class ModulePlayer {
 
         private List<Module> libModules = new List<Module>();
         private Module module           = null;
-        
-        public float Position
-        {
-            get
-            {
-                if (module != null) return module.Position;
-                else return 0;
+
+        public float Position {
+            get {
+                if (module != null) {
+                    return module.Position;
+                }
+                else {
+                    return 0;
+                }
             }
-            set
-            {
-                if (module != null) module.Position = value;
+            set {
+                if (module != null) {
+                    module.Position = value;
+                }
             }
         }
-        
-        public ModulePlayer()
-        {
+
+        public ModulePlayer() {
             libModules.Add(new MOD_Module());
             libModules.Add(new XM_Module());
         }
-        
-        public bool OpenFromStream(Stream stream)
-        {
-            module?.Dispose();
-            for (int i = 0; i < libModules.Count; i++)
-                if (libModules[i].CheckFormat(stream)) module = libModules[i];
 
+        public bool OpenFromStream(Stream stream) {
+            module?.Dispose();
+            for (int i = 0; i < libModules.Count; i++) {
+                if (libModules[i].CheckFormat(stream)) {
+                    module = libModules[i];
+                }
+            }
             module?.ReadFromStream(stream);
             DebugMes(module?.ToString());
             return true;
         }
-        
-        public bool OpenFromFile(string fileName)
-        {
+
+        public bool OpenFromFile(string fileName) {
             bool res = false;
-            using (FileStream fstream = File.OpenRead(fileName))
-            {
+            using (FileStream fstream = File.OpenRead(fileName)) {
                 DebugMes("Read from file : " + fileName);
                 res = OpenFromStream(fstream);
             }
             return res;
         }
-        
-        public void Play()
-        {
+
+        public void Play() {
             module?.Play();
         }
-        
-        public void PlayInstrument(int num)
-        {
+
+        public void PlayInstrument(int num) {
             module?.PlayInstrument(num);
         }
-        
-        public void Stop()
-        {
+
+        public void Stop() {
             module?.Stop();
         }
-        
-        public void Pause()
-        {
+
+        public void Pause() {
             module?.Pause();
         }
-        
-        private void DebugMes(string mes)
-        {
+
+        private void DebugMes(string mes) {
             #if DEBUG
             System.Diagnostics.Debug.WriteLine("ModulePlayer -> " + mes);
             #endif
         }
 
-    } // end of class ModulePlayer
+    }
 
 }

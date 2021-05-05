@@ -3,20 +3,17 @@ using System.IO;
 using System.Collections.Concurrent;
 using System.Threading;
 
-namespace ModuleSystem
-{
+namespace ModuleSystem {
     /// <summary>
     /// ModuleSoundStream inherite "Stream" to implement some functions to generate sound wave from file : mod, xm ...
     /// </summary>
-    class ModuleSoundStream : Stream
-    {
+    public class ModuleSoundStream : Stream {
         private long position;
         private ConcurrentQueue<byte> sampleQueue;
-        private AutoResetEvent dataAvailableSignaler    = new AutoResetEvent(false);
-        private int preloadSize                         = 2000;
+        private AutoResetEvent dataAvailableSignaler = new AutoResetEvent(false);
+        private int preloadSize = 2000;
 
-        public ModuleSoundStream(int sampleRate, bool stereo = false)
-        {
+        public ModuleSoundStream(int sampleRate, bool stereo = false) {
             position = 0;
             sampleQueue = new ConcurrentQueue<byte>();
             WriteWavHeader(sampleRate, stereo);
@@ -25,8 +22,7 @@ namespace ModuleSystem
         /// <summary>
         /// Write audio short sample -32768..32767 into stream
         /// </summary>
-        public void Write(short sample)
-        {
+        public void Write(short sample) {
             sampleQueue.Enqueue((byte)(sample & 0xFF));
             sampleQueue.Enqueue((byte)(sample >> 8));
 
@@ -34,14 +30,14 @@ namespace ModuleSystem
             if (sampleQueue.Count >= preloadSize)
                 dataAvailableSignaler.Set();
         }
-        
-        public int Buffered
-        {
-            get { return sampleQueue.Count; }
+
+        public int Buffered {
+            get {
+                return sampleQueue.Count;
+            }
         }
-        
-        public override int Read(byte[] buffer, int offset, int count)
-        {
+
+        public override int Read(byte[] buffer, int offset, int count) {
             if (position >= Length)
                 return 0;
 
@@ -53,20 +49,20 @@ namespace ModuleSystem
             while (count-- > 0 && sampleQueue.Count > 0) //copy data from incoming queue to output buffer
             {
                 byte b;
-                if (!sampleQueue.TryDequeue(out b)) return 0;
+                if (!sampleQueue.TryDequeue(out b))
+                    return 0;
                 buffer[res++] = b;
             }
             position += (res - offset);
 
             return res;
         }
-        
+
         #region WAV header
         /// <summary>
         /// Write wave header in start of wave stream with sampleRate frequency
         /// </summary>
-        private void WriteWavHeader(int sampleRate, bool stereo = false)
-        {
+        private void WriteWavHeader(int sampleRate, bool stereo = false) {
             MemoryStream stream = new MemoryStream();
             BinaryWriter writer = new BinaryWriter(stream);
 
@@ -103,7 +99,7 @@ namespace ModuleSystem
             byte[] headerBytes = stream.ToArray();
             for (int i = 0; i < headerBytes.Length; i++)
                 sampleQueue.Enqueue(headerBytes[i]);
-            
+
             position += headerBytes.Length;
 
             writer.Dispose();
@@ -111,55 +107,61 @@ namespace ModuleSystem
         }
         #endregion
         #region Stream impl
-        public override bool CanRead
-        {
-            get { return true; }
+        public override bool CanRead {
+            get {
+                return true;
+            }
         }
 
-        public override bool CanSeek
-        {
-            get { return false; }
+        public override bool CanSeek {
+            get {
+                return false;
+            }
         }
 
-        public override bool CanWrite
-        {
-            get { return false; }
+        public override bool CanWrite {
+            get {
+                return false;
+            }
         }
 
-        public override void Flush()
-        {
+        public override void Flush() {
             throw new NotImplementedException();
         }
 
-        public override long Length
-        {
-            get { return (uint)(int.MaxValue - 44); }
+        public override long Length {
+            get {
+                return (uint)(int.MaxValue - 44);
+            }
         }
 
-        public override long Position
-        {
-            get { return position; }
-            set { ; }
+        public override long Position {
+            get {
+                return position;
+            }
+            set {
+                ;
+            }
         }
 
-        public long QueueLength
-        {
-            get { return sampleQueue.Count; }
-            set { ; }
+        public long QueueLength {
+            get {
+                return sampleQueue.Count;
+            }
+            set {
+                ;
+            }
         }
 
-        public override long Seek(long offset, SeekOrigin origin)
-        {
+        public override long Seek(long offset, SeekOrigin origin) {
             throw new NotImplementedException();
         }
 
-        public override void SetLength(long value)
-        {
+        public override void SetLength(long value) {
             throw new NotImplementedException();
         }
 
-        public override void Write(byte[] buffer, int offset, int count)
-        {
+        public override void Write(byte[] buffer, int offset, int count) {
             throw new NotImplementedException();
         }
         #endregion
