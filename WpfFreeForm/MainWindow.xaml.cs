@@ -60,8 +60,10 @@ namespace WpfFreeFormModulePlayer {
             mPlayer.Stop();
         }
 
-        private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) {
-            this.DragMove();
+        private void Window_MouseDown(object sender, MouseButtonEventArgs e) {
+            if (Mouse.LeftButton == MouseButtonState.Pressed) {
+                this.DragMove();
+            }
         }
     }
 

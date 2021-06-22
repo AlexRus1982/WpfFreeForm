@@ -12,7 +12,7 @@
         OpacityMask="#FFFFFFFF" 
         WindowStartupLocation="CenterScreen"
         Height="320" Width="320" 
-        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+        MouseDown="Window_MouseDown">
     <Grid Background="Transparent" OpacityMask="#FF000000">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"></RowDefinition>
