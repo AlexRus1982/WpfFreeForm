@@ -26,7 +26,7 @@ namespace ModuleSystem {
         public const int LOOP_IS_PINGPONG           = 0x04;
         public const int LOOP_SUSTAIN_IS_PINGPONG   = 0x08;
 
-        public const int SOUNDFREQUENCY             = 48000; //44100
+        public const int SOUNDFREQUENCY             = 22050; //44100
         public const int SOUNDBUFFERSECONDS         = 1;
         public const int MIX_LEN                    = SOUNDFREQUENCY * SOUNDBUFFERSECONDS;
         public const int MIX_WAIT                   = MIX_LEN * 2;
@@ -45,7 +45,7 @@ namespace ModuleSystem {
         public const int MAXVOLUME                  = 64;
         public const int SM_16BIT                   = 0x04;     // 16 BIT
         public const int SM_STEREO                  = 0x08;     // STEREO
-        public const int SOUND_AMP                  = 32767;    // MAX SOUND AMP -32768..32767
+        public const int SOUND_AMP                  = 32750;    // MAX SOUND AMP -32768..32767
 
         public static string[] noteStrings = {
              "C-", "C#", "D-", "D#", "E-", "F-", "F#", "G-", "G#", "A-", "A#", "B-"
@@ -289,18 +289,17 @@ namespace ModuleSystem {
             return ((b[0] & 0x80) == 0) ? b[0] : b[0] - 256;
         }
 
+        public static int ReadSignedWordSwap(Stream stream) {
+            byte[] data = new byte[2];
+            stream.Read(data, 0, 2);
+            //Array.Reverse(data);
+            return BitConverter.ToInt16(data, 0);
+        }
+
+
     }
 
     public class ModulePatternChannel {
-
-        public uint period = 0;
-        public byte noteIndex = 0;
-        public ushort instrumentIndex = 0;
-        public uint effekt = 0;
-        public uint effektOp = 0;
-        public uint volumeEffekt = 0;
-        public uint volumeEffektOp = 0;
-
     }
 
     public class ModulePatternRow {
@@ -330,103 +329,119 @@ namespace ModuleSystem {
 
     }
 
-    public class ModuleSample {
-        public uint orderNumber = 0;
-        public uint length      = 0;
-        public uint loopStart   = 0;
-        public uint loopEnd     = 0;
-        public uint loopLength  = 0;
-        public byte loopType    = 0;
-        public float volume     = 0;
-        public byte finetune    = 0;
-
-        public string name      = "";
-        public List<float> data = new List<float>();    // The sampledata, already converted to 16 bit (always)
-                                                        // 8Bit: -128 to 127; 16Bit: -32768..0..+32767
-
-        public ModuleSample() {
-        }
-
-        public string ToShortString() {
-            return name;
-        }
-
-        public virtual void readHeaderFromStream(Stream stream) {
-        }
-
-        public virtual void readSampleDataFromStream(Stream stream) {
-        }
-
-        public void Clear() {
-            data.Clear();
-        }
-
-    }
-
     public class ModuleInstrument {
-        public uint size = 0;
+        public uint orderNumber = 0;                        //
+        public uint sizeInBytes = 0;                  //
+        public uint length = 0;                       //
+        public float volume = 0;                    // Basisvolume
+        public int fineTune = 0;                    // Finetuning -8..+8
+
         public string name = "";
         public uint samplesNumber = 0;
 
         public uint headerSize = 0;
-        public List<ModuleSample> samples = new List<ModuleSample>();
-        public ModuleSample sample = null;
 
         public ModuleInstrument() {
         }
 
-        public override string ToString() {
-            string res = name.Trim().PadRight(22, '.');
-            if (samples.Count > 0) {
-                res += " ( sample(s) : ";
-                foreach (ModuleSample sample in samples) {
-                    res += sample.orderNumber + " ";
-                }
-                res += ")";
+        public virtual float this[float index] {
+            get {
+                return 0.0f;
             }
-            return res;
+            set {
+            }
         }
 
-        public string ToShortString() {
+        public virtual float CalculateInstrumentPosition(float pos) {
+            return 0.0f;
+        }
+
+        public override string ToString() {
+            return ToShortString();
+        }
+
+        public virtual string ToShortString() {
             return name;
         }
 
-        public virtual void ReadFromStream(Stream stream, ref uint sampleOrder) {
+        public virtual void ReadHeaderFromStream(Stream stream, ref uint orderNumber) {
+        }
+
+        public virtual void ReadSampleDataFromStream(Stream stream) {
+        }
+
+        public virtual void Clear() {
+        }
+
+    }
+
+    public class ModuleInstrumentsList {
+        protected List<ModuleInstrument> instruments = new List<ModuleInstrument>();
+
+        public ModuleInstrument this[int index] {
+            get {
+                return instruments[index];
+            }
+            set {
+            }
+        }
+
+        public void Add(ModuleInstrument instrument) {
+            instruments.Add(instrument);
+        }
+
+        public int Count {
+            get {
+                return instruments.Count;
+            }
+        }
+
+        public List<ModuleInstrument> List {
+            get {
+                return instruments;
+            }
         }
 
         public void Clear() {
-            samples.Clear();
+            for (int i = 0; i < instruments.Count; i++) {
+                instruments[i].Clear();
+            }
+            instruments.Clear();
+
         }
 
     }
 
     public class Module : IDisposable {
 
-        protected readonly string moduleName    = "Base module";
-        protected float position                = 0;
+        protected readonly string moduleName        = "Base module";
+        protected float position                    = 0;
 
-        public string fileName                  = "";
-        public long fileLength                  = 0;
-        public string trackerName               = "";
-        public uint version                     = 0;
-        public uint headerSize                  = 0;
-        public uint songLength                  = 0;
-        public uint songRepeatPosition          = 0;
+        public string fileName                      = "";
+        public long fileLength                      = 0;
+        public string trackerName                   = "";
+        public uint version                         = 0;
+        public uint headerSize                      = 0;
+        public uint songLength                      = 0;
+        public uint songRepeatPosition              = 0;
 
-        public string moduleID                  = "";
-        public string songName                  = "";
-        public uint numberOfChannels            = 0;
-        public uint numberOfInstruments         = 0;
-        public uint numberOfSamples             = 0;
-        public uint numberOfPatterns            = 0;
-        public uint BPM                         = 125;
-        public uint tempo                       = 6;
+        public string moduleID                      = "";
+        public string songName                      = "";
+        public uint numberOfChannels                = 0;
+        public uint numberOfInstruments             = 0;
+        public uint numberOfSamples                 = 0;
+        public uint numberOfPatterns                = 0;
+        public uint BPM                             = 125;
+        public uint tempo                           = 6;
 
-        public float baseVolume                 = 0.0f;
-        public bool isAmigaLike                 = true;
+        public float baseVolume                     = 0.0f;
+        public bool isAmigaLike                     = true;
 
-        public List<uint> arrangement = new List<uint>();
-        public List<ModulePattern> patterns = new List<ModulePattern>();
+        public List<uint> arrangement               = new List<uint>();
+        public List<ModulePattern> patterns         = new List<ModulePattern>();
+
+        protected ModuleInstrumentsList instruments = new ModuleInstrumentsList();
+        protected ModuleMixer mixer                 = null;
 
         public float Position {
             get {
@@ -438,18 +453,23 @@ namespace ModuleSystem {
             }
         }
 
-        public virtual float InstrumentSampleData(byte instrumentNumber, uint position) {
-            return 0;
+        public ModuleInstrumentsList Instruments {
+            get {
+                return instruments;
+            }
+
+            set {
+            }
         }
 
-        //public Instrument this[int index] {
-        //    get {
-        //        return data[index];
-        //    }
-        //    set {
-        //        data[index] = value;
-        //    }
-        //}
+        public ModulePattern this[int index] {
+            get {
+                int patNum = (int)arrangement[index];
+                return patterns[patNum];
+            }
+            set {
+            }
+        }
 
         public virtual float InstrumentVolume(byte instrumentNumber) {
             return 0;
@@ -473,7 +493,7 @@ namespace ModuleSystem {
         public virtual void Play() {
         }
 
-        public virtual void PlayInstrument(int num) {
+        public virtual void PlayInstrument(uint instrumentNumber = 0) {
         }
 
         public virtual void Stop() {
@@ -553,12 +573,12 @@ namespace ModuleSystem {
         public float periodInc              = 0;
         public float instrumentPosition     = 2;
         public int instrumentDirection      = 1;
-        public int loopType                 = ModuleConst.LOOP_ON;
+        public uint loopType                = ModuleConst.LOOP_ON;
         public ushort instrumentIndex       = 0;
         public ushort instrumentLastIndex   = 0;
         public float instrumentLoopStart    = 0;
         public float instrumentLoopEnd      = 0;
-        public int instrumentLength         = 0;
+        public uint instrumentLength         = 0;
         public float instrumentVolume       = 1.0f;
         public float channelVolume          = 1.0f;
 
@@ -599,9 +619,8 @@ namespace ModuleSystem {
         protected List<bool> tickEffectsUsed  = new List<bool>();
         protected List<bool> effectsEUsed     = new List<bool>();
 
-        protected ModuleSoundStream waveStream    = null;
+        protected PlayBackWaveProvider waveStream = null;
         protected WaveOutEvent waveOut            = null;        
-        protected WaveFileReader waveReader       = null;
         protected Task MixingTask                 = null;
 
         protected bool NoEffect(ModuleMixerChannel mc)               // no effect
@@ -650,7 +669,7 @@ namespace ModuleSystem {
                     //}
                 }
                 else {
-                    pattern = module.patterns[(int)module.arrangement[(int)track]];
+                    pattern = module[(int)track];
                 }
             }
         }
@@ -692,6 +711,49 @@ namespace ModuleSystem {
                                                 resultTime.Milliseconds);
         */
 
+        public float GetSampleValue(ModuleMixerChannel mc) {
+            if (mc.instrumentIndex <= 0) {
+                return 0.0f;
+            }
+            ModuleInstrument sampleData = module.Instruments[(int)mc.instrumentIndex - 1];
+            mc.instrumentPosition = sampleData.CalculateInstrumentPosition(mc.instrumentPosition);
+            return GetSampleValueSimple(mc);
+        }
+
+        protected virtual float GetSampleValueSimple(ModuleMixerChannel mc) {
+            ModuleInstrument sampleData = module.Instruments[(int)mc.instrumentIndex - 1];
+            return sampleData[(int)mc.instrumentPosition] * mc.channelVolume;
+        }
+
+        protected virtual float GetSampleValueLinear(ModuleMixerChannel mc) {
+            ModuleInstrument sampleData = module.Instruments[(int)mc.instrumentIndex - 1];
+            int posInt = (int)mc.instrumentPosition;
+            float posReal = mc.instrumentPosition - posInt;
+            float a1 = sampleData[posInt];
+            if ((posInt + 1) >= mc.instrumentLength)
+                return a1 * mc.channelVolume;
+            float a2 = sampleData[posInt + 1];
+            return (a1 + (a2 - a1) * posReal) * mc.channelVolume;
+        }
+
+        protected virtual float GetSampleValueSpline(ModuleMixerChannel mc) {
+            ModuleInstrument sampleData = module.Instruments[(int)mc.instrumentIndex - 1];
+            int posInt = (int)mc.instrumentPosition;
+            float posReal = mc.instrumentPosition - posInt;
+            float a2 = sampleData[posInt];
+            if (((posInt - 1) < 0) || ((posInt + 2) >= mc.instrumentLength))
+                return a2 * mc.channelVolume;
+            float a1 = sampleData[posInt - 1];
+            float a3 = sampleData[posInt + 1];
+            float a4 = sampleData[posInt + 2];
+
+            float b0 = a1 + a2 + a2 + a2 + a2 + a3;
+            float b1 = -a1 + a3;
+            float b2 = a1 - a2 - a2 + a3;
+            float b3 = -a1 + a2 + a2 + a2 - a3 - a3 - a3 + a4;
+            return (((b3 * posReal * 0.1666666f + b2 * 0.5f) * posReal + b1 * 0.5f) * posReal + b0 * 0.1666666f) * mc.channelVolume;
+        }
+
         protected void UpdateNoteEffects() {
             for (int ch = 0; ch < module.numberOfChannels; ch++) {
                 noteEffects[(int)mixChannels[ch].effect](mixChannels[ch]);
@@ -716,7 +778,120 @@ namespace ModuleSystem {
             }
         }
 
+        protected virtual void UpdateNote() {
+        }
+
+        protected virtual void UpdateBPM() {
+        }
+
+        protected virtual void ResetChannelInstrument(ModuleMixerChannel mc) {
+        }
+
+        protected virtual ModuleMixerChannel CreateMixerChannel() {
+            return new ModuleMixerChannel();
+        }
+
+        protected virtual void InitModule(uint startPosition = 0) {
+            track = startPosition;
+            counter = 0;
+            patternDelay = 0;
+            samplesPerTick = 0;
+            mixerPosition = 0;
+            currentRow = 0;
+            pattern = module[(int)track];
+            BPM = module.BPM;
+            speed = module.tempo;
+            moduleEnd = false;
+
+            mixChannels.Clear();
+            for (int ch = 0; ch < module.numberOfChannels; ch++) {
+                ModuleMixerChannel mc = CreateMixerChannel();
+                mc.instrumentIndex = 0;
+                mc.instrumentLastIndex = 0;
+                mixChannels.Add(mc);
+            }
+
+            SetBPM();
+            UpdateBPM();
+        }
+
+        protected virtual void MixData() {
+            string ms = " channels " + module.numberOfChannels + " ";
+            for (int pos = 0; pos < ModuleConst.MIX_LEN; pos++) {
+                float mixValueR = 0;
+                float mixValueL = 0;
+                float mixValue = 0;
+                for (int ch = 0; ch < module.numberOfChannels; ch++) {
+                    ModuleMixerChannel mc = mixChannels[ch];
+                    //if (ch != 1) mc.muted = true;
+                    if (!mc.muted) {
+                        mixValue += GetSampleValue(mc);
+
+                        //if (ModuleConst.MIX_CHANNELS == ModuleConst.STEREO) {
+                        //    mixValueL += (((ch & 0x03) == 0) || ((ch & 0x03) == 3)) ? mixValue * 0.75f : mixValue * 0.25f;
+                        //    mixValueR += (((ch & 0x03) == 1) || ((ch & 0x03) == 2)) ? mixValue * 0.75f : mixValue * 0.25f;
+                        //}
+
+                    }
+                    mc.instrumentPosition += mc.periodInc;
+                }
+                if (ModuleConst.MIX_CHANNELS != ModuleConst.STEREO) {
+                    mixValue /= module.numberOfChannels;
+                }
+                //else {
+                //    mixValueL /= (module.numberOfChannels << 1);
+                //    mixValueR /= (module.numberOfChannels << 1);
+                //}
+
+                if (ModuleConst.MIX_CHANNELS != ModuleConst.STEREO) {
+                    waveStream.Write((short)mixValue);
+                }
+                //else {
+                //    waveStream.Write((short)mixValueL);
+                //    waveStream.Write((short)mixValueR);
+                //}
+
+                mixerPosition++;
+                if (mixerPosition >= samplesPerTick) {
+                    SetBPM();
+                    UpdateBPM();
+                }
+
+            }
+
+        }
+
         public virtual void PlayModule(uint startPosition = 0) {
+            playing = false;
+            InitModule(startPosition);
+
+            waveOut?.Stop();
+            MixingTask?.Wait();
+
+            waveStream?.Dispose();
+            waveOut?.Dispose();
+            MixingTask?.Dispose();
+
+            waveStream = new PlayBackWaveProvider(ModuleConst.SOUNDFREQUENCY /* module.numberOfChannels*/, ModuleConst.MIX_CHANNELS == ModuleConst.STEREO);
+            playing = true;
+
+            MixingTask = Task.Factory.StartNew(() => {
+                while ((!moduleEnd) && playing) {
+                    MixData();
+                    while (waveStream.QueueLength > ModuleConst.MIX_WAIT && playing) {
+                        Thread.Sleep(100);
+                    }
+                    //DebugMes("Play position - " + waveOut.GetPosition() + " queue length - " + waveStream.QueueLength);
+                }
+                while (waveStream.QueueLength > 0 && playing) {
+                    Thread.Sleep(100);
+                    //DebugMes("Play position - " + waveOut.GetPosition() + " queue length - " + waveStream.QueueLength);
+                }
+            });
+
+            waveOut = new WaveOutEvent();
+            waveOut.Init(waveStream);
+            waveOut.Play();
         }
 
         public void Stop() {

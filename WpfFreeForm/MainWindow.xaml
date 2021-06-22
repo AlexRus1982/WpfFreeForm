@@ -5,7 +5,14 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WpfFreeFormModulePlayer"
         mc:Ignorable="d"
-        Title="MainWindow" Height="320" Width="320" WindowStyle="None" AllowsTransparency="True" Background="Transparent" OpacityMask="#FFFFFFFF" WindowStartupLocation="CenterScreen">
+        Title="MainWindow" 
+        WindowStyle="None" 
+        AllowsTransparency="True" 
+        Background="Transparent" 
+        OpacityMask="#FFFFFFFF" 
+        WindowStartupLocation="CenterScreen"
+        Height="320" Width="320" 
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
     <Grid Background="Transparent" OpacityMask="#FF000000">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"></RowDefinition>

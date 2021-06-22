@@ -10,44 +10,102 @@ namespace ModuleSystem {
     
     public class XM_Sample {
         public uint orderNumber = 0;                        //
-        public uint sampleSizeInBytes = 0;                  //
-        public uint sampleLength = 0;                       //
-        public uint sampleLoopStart = 0;                    //
-        public uint sampleLoopLength = 0;                   //
-        public uint sampleLoopEnd = 0;                      //
-        public float sampleVolume = 0;                      //
-        public byte sampleFinetune = 0;                     // -128..+127;
-        public byte sampleType = 0;                         // Bit 0-1: 0 = No loop
+        public uint sizeInBytes = 0;                        //
+        public uint length = 0;                             //
+        public uint loopStart = 0;                          //
+        public uint loopLength = 0;                         //
+        public uint loopEnd = 0;                            //
+        public float volume = 0;                            //
+        public sbyte finetune = 0;                          // -128..+127;
+        public byte type = 0;                               // Bit 0-1: 0 = No loop
                                                             //		    1 = Forward loop
                                                             //		    2 = Bidirectional loop(aka ping-pong)
                                                             // Bit 4  : 0 = 8-bit samples
                                                             //		    1 = 16-bit samples
-        public byte sampleLoopType = 0;
-        public bool sampleIs16Bits = false;
-        public byte samplePanning = 0;                      // 0..255
+        public byte loopType = 0;
+        public bool is16Bits = false;
+        public byte panning = 0;                            // 0..255
         public sbyte relativeNoteNumber = 0;                // (signed byte)
         public byte packedType = 0;                         // 00 = regular delta packed sample data
                                                             // AD = 4-bit ADPCM-compressed sample data
-        public string sampleName = "";                      // 22 - chars
+        public string name = "";                            // 22 - chars
         public List<float> sampleData = new List<float>();  // 8- or 16-bit packed values
 
         public XM_Sample() {
         }
 
+        public float this[float index] {
+            get {
+                if (index < 0) {
+                    return 0.0f;
+                }
+
+                if ((index >= length) && (loopType == 0x00)) {
+                    return 0.0f;
+                }
+
+                if ((index >= loopEnd) && (loopType == 0x01)) {
+                    int pos = (int)(index - loopEnd) % (int)loopLength + (int)loopStart;
+                    return sampleData[pos];
+                }
+
+                if ((index >= loopStart) && (loopType == 0x02)) {
+                    int iter = (int)(index - loopStart) / (int)loopLength;
+                    if (iter % 2 == 0) {
+                        int pos = (int)loopStart + (int)(index - loopStart) % (int)loopLength;
+                        return sampleData[pos];
+                    }
+                    if (iter % 2 == 1) {
+                        int pos = (int)loopEnd - (int)(index - loopStart) % (int)loopLength;
+                        return sampleData[pos - 1];
+                    }
+                    return 0.0f;
+                }
+
+                return sampleData[(int)index];
+            }
+        }
+
+        public float CalculateInstrumentPosition(float pos) {
+            if (pos < 0) {
+                return 0.0f;
+            }
+
+            if ((pos >= length) && (loopType == 0x00)) {
+                return length;
+            }
+
+            if ((pos >= loopEnd) && (loopType == 0x01)) {
+                return (int)loopStart + (int)(pos - loopEnd) % (int)loopLength;
+            }
+
+            if ((pos >= loopStart) && (loopType == 0x02)) {
+                int iter = (int)(pos - loopStart) / (int)loopLength;
+                if (iter % 2 == 0) {
+                    return pos;
+                }
+                if (iter % 2 == 1) {
+                    return (int)loopEnd - (int)(pos - loopStart) % (int)loopLength - 1;
+                }
+                return pos;
+            }
+            return pos;
+        }
+
         public override string ToString() {
             string loopType = "Off";
-            loopType        = ((sampleType & 0x01) != 0) ? "Forward" : loopType;
-            loopType        = ((sampleType & 0x02) != 0) ? "Bidirectional" : loopType;
-            string res      = sampleName.Trim().PadRight(22, '.');
+            loopType        = ((type & 0x01) != 0) ? "Forward" : loopType;
+            loopType        = ((type & 0x02) != 0) ? "Bidirectional" : loopType;
+            string res      = name.Trim().PadRight(22, '.');
 
-            if (sampleSizeInBytes > 0) {
-                res +=  " ( size : " + sampleLength + " byte(s), "
-                        + (sampleIs16Bits ? "16-bit" : "8-bit") + ", "
-                        + "volume : " + sampleVolume + ", "
-                        + "loop : " + sampleType + " = " + loopType + ", ";
+            if (sizeInBytes > 0) {
+                res +=  " ( size : " + length + " byte(s), "
+                        + (is16Bits ? "16-bit" : "8-bit") + ", "
+                        + "volume : " + volume + ", "
+                        + "loop : " + type + " = " + loopType + ", ";
                 
-                if ((sampleType & 0x03) != 0) {
-                    res += "loopStart : " + sampleLoopStart + ", " + "loopEnd : " + sampleLoopEnd + ", ";
+                if ((type & 0x03) != 0) {
+                    res += "loopStart : " + loopStart + ", " + "loopEnd : " + loopEnd + ", " + "loopLength : " + loopLength + ", ";
                 }
                 
                 res += "packed - " + packedType + ((packedType != 0xAD) ? " - regular delta" : " - ADPCM-compressed") + ")";
@@ -58,35 +116,36 @@ namespace ModuleSystem {
         }
 
         public string ToShortString() {
-            return sampleName;
+            return name;
         }
 
         public void readHeaderFromStream(Stream stream) {
             long startSamplePosition = stream.Position;
 
-            sampleSizeInBytes   = ModuleUtils.ReadDWord(stream);
-            sampleLoopStart     = ModuleUtils.ReadDWord(stream);
-            sampleLoopLength    = ModuleUtils.ReadDWord(stream);
+            sizeInBytes         = ModuleUtils.ReadDWord(stream);
+            loopStart           = ModuleUtils.ReadDWord(stream);
+            loopLength          = ModuleUtils.ReadDWord(stream);
             byte vol            = ModuleUtils.ReadByte(stream);
-            sampleVolume        = (vol >= 64) ? 1.0f : (float)vol / 64.0f;
-            sampleFinetune      = ModuleUtils.ReadByte(stream);
-            sampleType          = ModuleUtils.ReadByte(stream);
-            samplePanning       = ModuleUtils.ReadByte(stream);
+            volume              = (vol >= 64) ? 1.0f : (float)vol / 64.0f;
+            finetune            = (sbyte)ModuleUtils.ReadSignedByte(stream);
+            type                = ModuleUtils.ReadByte(stream);
+            panning             = ModuleUtils.ReadByte(stream);
             relativeNoteNumber  = (sbyte)ModuleUtils.ReadSignedByte(stream);
             packedType          = ModuleUtils.ReadByte(stream);
-            sampleName          = ModuleUtils.ReadString0(stream, 22);
+            name                = ModuleUtils.ReadString0(stream, 22);
 
-            sampleLength        = ((sampleType & 0x10) != 0) ? sampleSizeInBytes >> 1 : sampleSizeInBytes;
-            sampleLoopType      = (byte)(sampleType & 0x03);
-            sampleIs16Bits      = (sampleType & 0x10) != 0;
-            sampleLoopStart     = sampleIs16Bits ? sampleLoopStart >> 1 : sampleLoopStart;
-            sampleLoopEnd       = sampleIs16Bits ? sampleLoopEnd >> 1   : sampleLoopEnd;
+            length              = ((type & 0x10) != 0) ? sizeInBytes >> 1 : sizeInBytes;
+            loopType            = (byte)(type & 0x03);
+            is16Bits            = (type & 0x10) != 0;
             
-            sampleLoopStart     = (sampleLoopStart > sampleLength) ? sampleLength : sampleLoopStart;
-            sampleLoopEnd       = sampleLoopStart + sampleLoopLength;
-            sampleLoopEnd       = (sampleLoopEnd > sampleLength) ? sampleLength : sampleLoopEnd;
 
-            relativeNoteNumber  = 0;
+            loopStart           = is16Bits ? loopStart >> 1  : loopStart;
+            loopLength          = is16Bits ? loopLength >> 1 : loopLength;
+            loopEnd             = loopStart + loopLength;
+            loopEnd             = (loopEnd > length) ? length : loopEnd;
+            loopStart           = (loopStart > length) ? length : loopStart;
+
+            relativeNoteNumber = 0;
             //stream.Seek(startSamplePosition + 40, SeekOrigin.Begin);
         }
 
@@ -94,12 +153,12 @@ namespace ModuleSystem {
         // TODO : need to do loading of AD = 4-bit ADPCM-compressed sample data
         public void readSampleDataFromStream(Stream stream) {
             sampleData.Clear();
-            float ampDivider = ((sampleType & 0x10) != 0) ? 0.000030517578125f /* 1/32768 */ : 0.0078125f /* 1/128 */;
-            if (sampleLength > 0) {
+            float ampDivider = ((type & 0x10) != 0) ? 0.000030517578125f /* 1/32768 */ : 0.0078125f /* 1/128 */;
+            if (length > 0) {
                 float oldValue = 0;
-                for (uint i = 0; i < sampleLength; i++) {
+                for (uint i = 0; i < length; i++) {
                     float sampleValue;
-                    sampleValue = ((sampleType & 0x10) != 0) ? ModuleUtils.ReadWord(stream) : ModuleUtils.ReadSignedByte(stream);
+                    sampleValue = ((type & 0x10) != 0) ? ModuleUtils.ReadSignedWordSwap(stream) : ModuleUtils.ReadSignedByte(stream);
                     oldValue += sampleValue * ampDivider;
                     if (oldValue < -1) {
                         oldValue += 2;
@@ -107,7 +166,7 @@ namespace ModuleSystem {
                     else if (oldValue > 1) {
                         oldValue -= 2;
                     }
-                    sampleData.Add(oldValue);
+                    sampleData.Add(oldValue * ModuleConst.SOUND_AMP);
                 }
             }
         }
@@ -118,13 +177,10 @@ namespace ModuleSystem {
 
     }
 
-    public class XM_Instrument {
+    public class XM_Instrument : ModuleInstrument {
         public uint instrumentSize = 0;
-        public string instrumentName = "";
         public byte instrumentType = 0;
-        public uint samplesNumber = 0;
 
-        public uint headerSize = 0;
         public List<byte> keymapAssignements = new List<byte>();
         public List<ushort> pointsForVolumeEnvelope = new List<ushort>();
         public List<ushort> pointsForPanningEnvelope = new List<ushort>();
@@ -150,8 +206,18 @@ namespace ModuleSystem {
         public XM_Instrument() {
         }
 
+        public override float this[float index] {
+            get {
+                return sample[index];
+            }
+        }
+
+        public override float CalculateInstrumentPosition(float pos) {
+            return sample.CalculateInstrumentPosition(pos);
+        }
+
         public override string ToString() {
-            string res = instrumentName.Trim().PadRight(22, '.');
+            string res = name.Trim().PadRight(22, '.');
             if (samples.Count > 0) {
                 res += " ( sample(s) : ";
                 foreach (XM_Sample sample in samples) {
@@ -162,14 +228,10 @@ namespace ModuleSystem {
             return res;
         }
 
-        public string ToShortString() {
-            return instrumentName;
-        }
-
         public void ReadFromStream(Stream stream, ref uint sampleOrder) {
             long startInstrumentPosition = stream.Position;
             instrumentSize = ModuleUtils.ReadDWord(stream);
-            instrumentName = ModuleUtils.ReadString0(stream, 22);
+            name = ModuleUtils.ReadString0(stream, 22);
             instrumentType = ModuleUtils.ReadByte(stream); // Length
             samplesNumber = ModuleUtils.ReadWord(stream);
             samples.Clear();
@@ -211,7 +273,7 @@ namespace ModuleSystem {
                     sample.readHeaderFromStream(stream);
                     sample.orderNumber = sampleOrder++;
                     samples.Add(sample);
-                    sampleDataLength += sample.sampleSizeInBytes;
+                    sampleDataLength += sample.sizeInBytes;
                 }
 
                 long startSampleDataPosition = stream.Position;
@@ -225,18 +287,25 @@ namespace ModuleSystem {
             }
 
             sample = (samples.Count > 0) ? samples[0] : null;
+            if (sample != null) {
+                volume = sample.volume;
+            }
         }
 
-        public void Clear() {
+        public override void Clear() {
+            foreach (XM_Sample sample in samples) {
+                sample.Clear();
+            }
             samples.Clear();
         }
 
     }
 
-    public class XM_PatternChannel : ModulePatternChannel {
+    public class XM_PatternChannel : MOD_PatternChannel {
 
         public byte volumeEffect = 0;
         public bool cutNote = false;
+
         public static string[] effectStrings =
         {
              "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
@@ -408,11 +477,6 @@ namespace ModuleSystem {
         private byte XM_1A_Byte = 0;
         private uint XM_Flags = 0;
 
-        public List<XM_Instrument> instruments = new List<XM_Instrument>();
-
-        private uint sampleOrderNum = 1;
-        private XM_Mixer mixer = null;
-
         public XM_Module() : base("XM format") {
             DebugMes("XM Sound Module created");
         }
@@ -420,7 +484,7 @@ namespace ModuleSystem {
         public string InstrumentsToString() {
             string res = "Instruments info : \n";
             uint i = 1;
-            foreach (XM_Instrument inst in instruments) {
+            foreach (XM_Instrument inst in Instruments.List) {
                 res += ModuleUtils.GetAsDec((int)i++, 3) + " : " + inst.ToString().Trim() + "\n";
             }
             return res;
@@ -429,7 +493,7 @@ namespace ModuleSystem {
         public string SamplesToString() {
             string res = "Samples info : \n";
             uint i = 1;
-            foreach (XM_Instrument inst in instruments) {
+            foreach (XM_Instrument inst in Instruments.List) {
                 foreach (XM_Sample sample in inst.samples) {
                     res += ModuleUtils.GetAsDec((int)i++, 3) + " : " + sample.ToString().Trim() + "\n";
                 }
@@ -458,15 +522,11 @@ namespace ModuleSystem {
         }
 
         private void ReadInstruments(Stream stream) {
-            sampleOrderNum = 1;
-            foreach (XM_Instrument inst in instruments) {
-                inst.Clear();
-            }
-            instruments.Clear();
+            Instruments.Clear();
             for (uint i = 0; i < numberOfInstruments; i++) {
                 XM_Instrument inst = new XM_Instrument();
-                inst.ReadFromStream(stream, ref sampleOrderNum);
-                instruments.Add(inst);
+                Instruments.Add(inst);
+                inst.ReadFromStream(stream, ref i);
             }
         }
 
@@ -481,7 +541,7 @@ namespace ModuleSystem {
                 XM_Pattern pattern = new XM_Pattern();
                 pattern.ReadPatternData(stream, moduleID, numberOfChannels, numberOfSamples);
                 patterns.Add(pattern);
-                DebugMes("Patern : " + i + pattern.ToString());
+                //DebugMes("Patern : " + i + pattern.ToString());
             }
         }
 
@@ -548,6 +608,32 @@ namespace ModuleSystem {
             mixer.PlayModule(0);
         }
 
+        public override void PlayInstrument(uint instrumentNumber = 0) {
+            PlayBackWaveProvider waveStream = new PlayBackWaveProvider(ModuleConst.SOUNDFREQUENCY, ModuleConst.MIX_CHANNELS == ModuleConst.STEREO);
+
+            XM_Sample sample = ((XM_Instrument)Instruments[(int)instrumentNumber - 1]).sample;
+
+            string mes = "\n\n\nSample number : " + sample.orderNumber;
+
+            float period = 7680.0f - (48 + sample.relativeNoteNumber) * 64.0f;
+            float frequency = (float)(8363 * Math.Pow(2, (4608.0f - period) * 0.001302083f));
+            float periodInc = (period != 0) ? frequency * 2 / ModuleConst.SOUNDFREQUENCY : 1.0f;
+            float pos = 0;
+
+            mes += " freq : " + period;
+            DebugMes(mes);
+
+            while (pos < sample.length * 4 - 1) {
+                waveStream.Write((short)sample[(int)pos]);
+                pos += periodInc;
+            }
+
+            WaveOutEvent waveOut = new WaveOutEvent();
+            waveOut.Init(waveStream);
+            waveOut.Play();
+        }
+
+
         public override void Stop() {
             mixer.Stop();
         }
@@ -559,36 +645,7 @@ namespace ModuleSystem {
     }
  
     public class XM_MixerChannel : ModuleMixerChannel {
-
-        public XM_PatternChannel patternChannel = null;
-        public XM_Instrument instrument         = null;
-        public XM_Instrument lastInstrument     = null;
         public byte volumeEffect                = 0;
-
-        public override void CalculateInstrumentPosition() {
-            if (instrumentDirection == 1) {
-                if ((instrumentPosition > instrumentLength) && (loopType == 0x00)) {
-                    instrumentPosition = instrumentLength;
-                }
-
-                if ((instrumentPosition > instrumentLoopEnd) && (loopType == 0x01)) {
-                    instrumentPosition = instrumentLoopStart;
-                }
-
-                if ((instrumentPosition > instrumentLoopEnd) && (loopType == 0x02)) {
-                    instrumentPosition = instrumentLoopEnd;
-                    instrumentDirection = -1;
-                }
-            }
-
-            if (instrumentDirection == -1) {
-                if ((instrumentPosition < instrumentLoopStart) && (loopType == 0x02)) {
-                    instrumentPosition = instrumentLoopStart;
-                    instrumentDirection = 1;
-                }
-            }
-        }
-
     }
 
     public class XM_Mixer : MOD_Mixer {
@@ -641,13 +698,18 @@ namespace ModuleSystem {
             return (uint)period;
         }
 
-        protected void ResetChannelInstrument(XM_MixerChannel mc) {
+        protected override ModuleMixerChannel CreateMixerChannel() {
+            return new XM_MixerChannel();
+        }
+
+        protected override void ResetChannelInstrument(ModuleMixerChannel mc) {
+            XM_Instrument instrument = (XM_Instrument)module.Instruments[(int)mc.instrumentIndex - 1];
             mc.instrumentPosition = 2;
-            mc.instrumentLength = (int)mc.instrument.sample.sampleLength;
-            mc.loopType = mc.instrument.sample.sampleLoopType;
-            mc.instrumentLoopStart = mc.instrument.sample.sampleLoopStart;
-            mc.instrumentLoopEnd = mc.instrument.sample.sampleLoopEnd;
-            mc.currentFineTune = mc.instrument.sample.sampleFinetune;
+            mc.instrumentLength = instrument.sample.length;
+            mc.loopType = instrument.sample.loopType;
+            mc.instrumentLoopStart = instrument.sample.loopStart;
+            mc.instrumentLoopEnd = instrument.sample.loopEnd;
+            mc.currentFineTune = instrument.sample.finetune;
 
             mc.vibratoCount = 0;
             mc.tremoloCount = 0;
@@ -660,7 +722,6 @@ namespace ModuleSystem {
                 XM_MixerChannel mc = (XM_MixerChannel)mixChannels[ch];
                 XM_PatternChannel pe = (XM_PatternChannel)pattern.patternRows[(int)currentRow].patternChannels[ch];
 
-                mc.patternChannel = pe;
                 mc.effect = pe.effekt;
                 mc.effectArg = pe.effektOp;
                 mc.effectArgX = (mc.effectArg & 0xF0) >> 4;
@@ -671,31 +732,31 @@ namespace ModuleSystem {
                 }
 
                 if (pe.instrumentIndex > 0 && pe.noteIndex > 0 && pe.noteIndex < 97) {
-                    mc.lastInstrument = mc.instrument;
-                    mc.instrument = ((XM_Module)module).instruments[(int)pe.instrumentIndex - 1];
+                    mc.instrumentLastIndex = mc.instrumentIndex;
+                    mc.instrumentIndex = pe.instrumentIndex;
                     ResetChannelInstrument(mc);
-                    mc.channelVolume = mc.instrument.sample.sampleVolume;
+                    mc.channelVolume = module.Instruments[(int)mc.instrumentIndex - 1].volume;
                     mc.portamentoStart = (int)mc.period;
-                    mc.noteIndex = (uint)(pe.noteIndex + mc.instrument.sample.relativeNoteNumber);
+                    mc.noteIndex = (uint)(pe.noteIndex + ((XM_Instrument)module.Instruments[(int)mc.instrumentIndex - 1]).sample.relativeNoteNumber);
                     mc.period = GetNoteFreq(mc.noteIndex, mc.currentFineTune);
                     mc.portamentoEnd = (int)mc.period;
                     mc.periodInc = CalcPeriodIncrement(mc.period);
                 }
 
-                if (pe.instrumentIndex > 0 && pe.noteIndex == 0 && ((XM_Module)module).instruments[(int)pe.instrumentIndex - 1] != mc.lastInstrument) {
-                    mc.lastInstrument = mc.instrument;
-                    mc.instrument = ((XM_Module)module).instruments[(int)pe.instrumentIndex - 1];
+                if (pe.instrumentIndex > 0 && pe.noteIndex == 0 && pe.instrumentIndex != mc.instrumentLastIndex) {
+                    mc.instrumentLastIndex = pe.instrumentIndex;
+                    mc.instrumentIndex = pe.instrumentIndex;
                     ResetChannelInstrument(mc);
-                    mc.channelVolume = mc.instrument.sample.sampleVolume;
+                    mc.channelVolume = module.Instruments[(int)mc.instrumentIndex - 1].volume;
                 }
 
-                if (pe.instrumentIndex > 0 && pe.noteIndex == 0 && ((XM_Module)module).instruments[(int)pe.instrumentIndex - 1] == mc.lastInstrument) {
-                    mc.channelVolume = mc.instrument.sample.sampleVolume;
+                if (pe.instrumentIndex > 0 && pe.noteIndex == 0 && pe.instrumentIndex == mc.instrumentLastIndex) {
+                    mc.channelVolume = module.Instruments[(int)mc.instrumentIndex - 1].volume;
                 }
 
                 if (pe.instrumentIndex == 0 && pe.noteIndex > 0 && pe.noteIndex < 97) {
                     mc.portamentoStart = (int)mc.period;
-                    mc.noteIndex = (uint)(pe.noteIndex + mc.instrument.sample.relativeNoteNumber);
+                    mc.noteIndex = (uint)(pe.noteIndex + ((XM_Instrument)module.Instruments[(int)mc.instrumentIndex - 1]).sample.relativeNoteNumber);
                     mc.period = GetNoteFreq(mc.noteIndex, mc.currentFineTune);
                     mc.portamentoEnd = (int)mc.period;
                     mc.periodInc = CalcPeriodIncrement(mc.period);
@@ -743,135 +804,6 @@ namespace ModuleSystem {
                 UpdateTickEffects();
             }
             counter++;
-        }
-
-        protected override void InitModule(uint startPosition = 0) {
-            track = startPosition;
-            counter = 0;
-            patternDelay = 0;
-            samplesPerTick = 0;
-            mixerPosition = 0;
-            currentRow = 0;
-            pattern = module.patterns[(int)module.arrangement[(int)track]];
-            BPM = module.BPM;
-            speed = module.tempo;
-            moduleEnd = false;
-
-            mixChannels.Clear();
-            for (int ch = 0; ch < module.numberOfChannels; ch++) {
-                XM_MixerChannel mc = new XM_MixerChannel();
-                mc.instrument = ((XM_Module)module).instruments[0];
-                mc.lastInstrument = ((XM_Module)module).instruments[0];
-                mixChannels.Add(mc);
-            }
-        }
-
-        //public void PlayInstrument(int instrumentNumber = 0) {
-        //    waveStream = new ModuleSoundStream(ModuleConst.SOUNDFREQUENCY, ModuleConst.MIX_CHANNELS == ModuleConst.STEREO);
-
-        //    XM_MixerChannel ch = new XM_MixerChannel();
-        //    ch.instrument = ((XM_Module)module).instruments[instrumentNumber - 1];
-        //    XM_Sample sample = ch.instrument.sample;
-
-        //    string mes = "\n\n\n";
-        //    float periodInc = CalcPeriodIncrement(GetNotePeriod((uint)(48 + sample.relativeNoteNumber), 0));
-        //    float pos = 0;
-        //    while (pos < sample.sampleLength - 1) {
-        //        short value = (short)(sample.sampleData[(int)pos] * ModuleConst.SOUND_AMP);
-        //        waveStream.Write(value);
-        //        if (((int)pos & 100) == 0) {
-        //            mes += value + ", ";
-        //        }
-        //        pos += periodInc;
-        //    }
-        //    DebugMes(mes);
-
-        //    waveReader = new WaveFileReader(waveStream);
-        //    waveOut = new WaveOutEvent();
-        //    waveOut.Init(waveReader);
-        //    waveOut.Play();
-        //}
-
-        protected float GetSampleValueSimple(XM_MixerChannel mc) {
-            return mc.instrument.sample.sampleData[(int)mc.instrumentPosition] * mc.channelVolume;
-        }
-
-        protected float GetSampleValueLinear(XM_MixerChannel mc) {
-            return 0;
-            //int posInt = (int)mc.instrumentPosition;
-            //float posReal = mc.instrumentPosition - posInt;
-            //float a1 = mc.instrument.sample.sampleData[posInt];
-            //if ((posInt + 1) >= mc.instrumentLength) return a1 * mc.channelVolume;
-            //float a2 = mc.instrument.sample.sampleData[posInt + 1];
-            //return (a1 + (a2 - a1) * posReal) * mc.channelVolume;
-        }
-
-        protected float GetSampleValueSpline(XM_MixerChannel mc) {
-            return 0;
-            //int posInt = (int)mc.instrumentPosition;
-            //float posReal = mc.instrumentPosition - posInt;
-            //float a2 = mc.instrument.sample.sampleData[posInt];
-            //if (((posInt - 1) < 0) || ((posInt + 2) >= mc.instrumentLength)) return a2 * mc.channelVolume;
-            //float a1 = mc.instrument.sample.sampleData[posInt - 1];
-            //float a3 = mc.instrument.sample.sampleData[posInt + 1];
-            //float a4 = mc.instrument.sample.sampleData[posInt + 2];
-
-            //float b0 = a1 + a2 + a2 + a2 + a2 + a3;
-            //float b1 = -a1 + a3;
-            //float b2 = a1 - a2 - a2 + a3;
-            //float b3 = -a1 + a2 + a2 + a2 - a3 - a3 - a3 + a4;
-            //return (((b3 * posReal * 0.1666666f + b2 * 0.5f) * posReal + b1 * 0.5f) * posReal + b0 * 0.1666666f) * mc.channelVolume;
-        }
-
-        protected override void MixData() {
-            //var startTime = System.Diagnostics.Stopwatch.StartNew();
-            //*
-            string ms = "Mixed Channels " + module.numberOfChannels + " ";
-            string mes = ms + " ";
-            for (int pos = 0; pos < ModuleConst.MIX_LEN; pos++) {
-                float mixValueR = 0;
-                float mixValueL = 0;
-                float mixValue = 0;
-                for (int ch = 0; ch < module.numberOfChannels; ch++) {
-                    XM_MixerChannel mc = (XM_MixerChannel)mixChannels[ch];
-                    //if (ch != 1) mc.muted = true;
-                    if (!mc.muted) {
-                        mc.CalculateInstrumentPosition();
-                        if ((mc.instrumentPosition >= 0) && (mc.instrumentPosition < mc.instrumentLength)) {
-                            mixValue += GetSampleValueSimple(mc);
-                            //mixValue += GetSampleValueLinear(mc);
-                            //mixValue += GetSampleValueSpline(mc);
-                            if (ModuleConst.MIX_CHANNELS == ModuleConst.STEREO) {
-                                mixValueL += (((ch & 0x03) == 0) || ((ch & 0x03) == 3)) ? mixValue : 0;
-                                mixValueR += (((ch & 0x03) == 1) || ((ch & 0x03) == 2)) ? mixValue : 0;
-                            }
-                        }
-                        mc.instrumentPosition += (mc.periodInc * mc.instrumentDirection);
-                    }
-                }
-                if (ModuleConst.MIX_CHANNELS != ModuleConst.STEREO) {
-                    mixValue /= module.numberOfChannels;
-                }
-                else {
-                    mixValueL /= (module.numberOfChannels << 1);
-                    mixValueR /= (module.numberOfChannels << 1);
-                }
-
-                if (ModuleConst.MIX_CHANNELS != ModuleConst.STEREO) {
-                    waveStream.Write((short)(mixValue * ModuleConst.SOUND_AMP));
-                }
-                else {
-                    waveStream.Write((short)((mixValueR * 0.75f + mixValueL * 0.25f) * ModuleConst.SOUND_AMP));
-                    waveStream.Write((short)((mixValueL * 0.75f + mixValueR * 0.25f) * ModuleConst.SOUND_AMP));
-                }
-
-                mixerPosition++;
-                if (mixerPosition >= samplesPerTick) {
-                    SetBPM();
-                    UpdateBPM();
-                }
-            }
-
         }
 
     }

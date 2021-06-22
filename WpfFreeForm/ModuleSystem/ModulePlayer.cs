@@ -53,7 +53,7 @@ namespace ModuleSystem {
             module?.Play();
         }
 
-        public void PlayInstrument(int num) {
+        public void PlayInstrument(uint num) {
             module?.PlayInstrument(num);
         }
 
