@@ -3,19 +3,14 @@ using System.IO;
 using System;
 
 namespace ModuleSystem {
+    
     public class ModulePlayer {
 
-        private List<Module> libModules = new List<Module>();
-        private Module module           = null;
+        private Module module = null;
 
         public float Position {
             get {
-                if (module != null) {
-                    return module.Position;
-                }
-                else {
-                    return 0;
-                }
+                return (module != null) ? module.Position : 0;
             }
             set {
                 if (module != null) {
@@ -25,20 +20,21 @@ namespace ModuleSystem {
         }
 
         public ModulePlayer() {
-            libModules.Add(new MOD_Module());
-            libModules.Add(new XM_Module());
+        }
+
+        private void TryModuleLoader(Module checkingModule, Stream stream) {
+            if (checkingModule.CheckFormat(stream)) {
+                module = checkingModule;
+            }
         }
 
         public bool OpenFromStream(Stream stream) {
             module?.Dispose();
-            for (int i = 0; i < libModules.Count; i++) {
-                if (libModules[i].CheckFormat(stream)) {
-                    module = libModules[i];
-                }
-            }
+            TryModuleLoader(new MOD_Module(), stream);
+            TryModuleLoader(new XM_Module(), stream);
             module?.ReadFromStream(stream);
             DebugMes(module?.ToString());
-            return true;
+            return module != null;
         }
 
         public bool OpenFromFile(string fileName) {
