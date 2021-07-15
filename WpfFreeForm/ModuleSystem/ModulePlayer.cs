@@ -1,6 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
 using System.IO;
-using System;
+using System.Linq;
 
 namespace ModuleSystem {
     
@@ -30,8 +30,16 @@ namespace ModuleSystem {
 
         public bool OpenFromStream(Stream stream) {
             module?.Dispose();
-            TryModuleLoader(new MOD_Module(), stream);
-            TryModuleLoader(new XM_Module(), stream);
+
+            // using reflection to load all submodule of class Module : MOD_Module, XM_Module
+            var subclasses = typeof(Module).Assembly.GetTypes().Where(type => type.IsSubclassOf(typeof(Module)));
+            foreach (var subclass in subclasses) {
+                Console.WriteLine(subclass.FullName);
+                var classType = Type.GetType(subclass.FullName);
+                Module classInstance = (Module)Activator.CreateInstance(classType);
+                TryModuleLoader(classInstance, stream);
+            }
+
             module?.ReadFromStream(stream);
             DebugMes(module?.ToString());
             return module != null;
